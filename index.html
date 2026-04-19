@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.rss2json.com https://maps.googleapis.com https://maps.gstatic.com; frame-src https://www.google.com https://maps.google.com;">
     <title>CrowdSense AI | Tactical Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -104,8 +105,12 @@
             { id: 'map', label: 'Live Map' },
             { id: 'detector', label: 'Detector' },
             { id: 'insights', label: 'Insights' },
-            { id: 'alerts', label: 'Alerts' }
+            { id: 'alerts', label: 'Alerts' },
+            { id: 'ai-chat', label: '✦ AI Command' }
         ];
+
+        // Gemini chat history per stadium
+        const chatHistory = {};
 
         let state = { 
             tab: 'map', 
@@ -544,6 +549,63 @@
                         </div>
                     </div>`;
             }
+            else if (state.tab === 'ai-chat') {
+                if(!chatHistory[state.priorityId]) chatHistory[state.priorityId] = [];
+                const msgs = chatHistory[state.priorityId];
+                container.innerHTML = `
+                    <div class="flex flex-col h-full card overflow-hidden">
+                        <div class="flex items-center justify-between p-4 border-b border-[#333] bg-[rgba(59,130,246,0.05)]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                <span class="text-sm font-bold text-white">CrowdSense ✦ Gemini 2.5 Flash — AI Command</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-blue-400 uppercase tracking-widest">Target: ${pStadium.name} • ${Math.floor(pStadium.occ)}% Density • ${pStadium.mood}</span>
+                        </div>
+                        <div id="chat-messages" class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4">
+                            ${msgs.length === 0 ? `
+                                <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
+                                    <div class="text-5xl">🎯</div>
+                                    <div class="text-white font-bold text-lg">Gemini 2.5 Flash Active</div>
+                                    <div class="text-gray-400 text-sm max-w-sm">Ask me anything about crowd safety, evacuation routes, threat assessment, or tactical recommendations for ${pStadium.name}.</div>
+                                    <div class="flex flex-wrap gap-2 justify-center mt-2">
+                                        ${['What is the current threat level?', 'Suggest evacuation routes', 'Analyze crowd density risk', 'Any bottleneck risks?'].map(q => `
+                                            <button class="text-xs px-3 py-1.5 border border-blue-500/30 text-blue-300 rounded-full hover:bg-blue-500/10 transition-colors" onclick="askGemini('${q}')">${q}</button>
+                                        `).join('')}
+                                    </div>
+                                </div>` :
+                                msgs.map(m => `
+                                    <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
+                                        <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                                            m.role === 'user'
+                                            ? 'bg-blue-500/20 border border-blue-500/30 text-white rounded-br-sm'
+                                            : 'bg-[rgba(255,255,255,0.04)] border border-[#333] text-gray-200 rounded-bl-sm'
+                                        }">
+                                            ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5">Gemini 2.5 — Tactical AI</div>' : ''}
+                                            ${m.text.replace(/\n/g, '<br/>')}
+                                        </div>
+                                    </div>
+                                `).join('')
+                            }
+                            <div id="ai-typing-indicator" class="hidden justify-start">
+                                <div class="px-4 py-3 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[#333]">
+                                    <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5">Gemini 2.5 — Processing...</div>
+                                    <div id="ai-stream-output" class="text-sm text-gray-200 leading-relaxed terminal-cursor"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 border-t border-[#333]">
+                            <div class="flex gap-3">
+                                <input id="chat-input" type="text" placeholder="Ask for tactical analysis, evacuation plans, crowd risk assessment..."
+                                    class="flex-1 bg-transparent border border-[#333] rounded-full px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
+                                    onkeydown="if(event.key==='Enter') { askGemini(this.value); this.value=''; }">
+                                <button onclick="const inp=document.getElementById('chat-input'); askGemini(inp.value); inp.value='';"
+                                    class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-colors flex items-center gap-2">
+                                    <i data-lucide="send" class="w-4 h-4"></i> Send
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            }
             lucide.createIcons();
         }
 
@@ -559,7 +621,7 @@
                             <div class="w-3 h-3 rounded-full ${sec.d > 85 ? 'bg-red-500 shadow-[0_0_25px_#ef4444]' : 'bg-green-500 shadow-[0_0_15px_#10b981]'} relative z-10 border-2 border-black pointer-events-none"></div>
                             <div class="mt-4 bg-[#0a0a0a]/90 backdrop-blur-md border ${sec.d > 85 ? 'border-red-500/50' : 'border-[#333]'} px-3 py-1.5 rounded-lg text-center shadow-2xl pointer-events-none transition-colors">
                                 <div class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 pointer-events-none">${sec.n}</div>
-                                <div class="text-[13px] font-black ${sec.d > 85 ? 'text-red-400' : 'text-white'} pointer-events-none">${Math.floor(sec.d)}% DENSITY</div>
+                                <div class="text-[13px] font-black ${sec.d > 85 ? 'text-red-400' : 'text-white'} pointer-events-none" aria-live="polite">${Math.floor(sec.d)}% DENSITY</div>
                             </div>
                         </div>`;
                 }
@@ -571,6 +633,67 @@
                     `;
                 }
             });
+        }
+
+        async function askGemini(message) {
+            if (!message || !message.trim() || !state.priorityId) return;
+            const s = STADIUMS[state.priorityId];
+            if (!s) return;
+
+            if (!chatHistory[state.priorityId]) chatHistory[state.priorityId] = [];
+            chatHistory[state.priorityId].push({ role: 'user', text: message.trim() });
+            renderApp();
+
+            // Show typing indicator
+            const typingEl = document.getElementById('ai-typing-indicator');
+            const streamEl = document.getElementById('ai-stream-output');
+            if (typingEl) { typingEl.classList.remove('hidden'); typingEl.classList.add('flex'); }
+
+            let fullResponse = '';
+
+            try {
+                const res = await fetch('/api/ai-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message.trim(),
+                        venue: s.name,
+                        density: Math.floor(s.occ),
+                        mood: s.mood,
+                    }),
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+                    for (const line of lines) {
+                        const data = line.replace('data: ', '').trim();
+                        if (data === '[DONE]') break;
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.text) {
+                                fullResponse += parsed.text;
+                                if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                            }
+                        } catch(_) {}
+                    }
+                }
+            } catch (err) {
+                fullResponse = `⚠️ AI Engine temporarily offline. Fallback analysis:\n\nBased on current data for ${s.name}: Density is at ${Math.floor(s.occ)}% with ${s.mood} status. Chaos probability stands at ${s.chaosProb}%. Primary evacuation recommended via ${s.evacRoute}.`;
+                if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+            }
+
+            chatHistory[state.priorityId].push({ role: 'ai', text: fullResponse });
+            renderApp();
+
+            // Scroll to bottom
+            const chatEl = document.getElementById('chat-messages');
+            if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
         }
 
         window.onload = init;

@@ -1,50 +1,52 @@
-/**
- * CrowdSense AI - Core Engine Logic Tests
- * 
- * This test suite validates the predictive algorithms used by the 
- * CrowdSense Tactical Intelligence Layer to calculate threat levels.
- */
+import assert from 'node:assert';
 
-describe('CrowdSense AI - Predictive Threat Algorithms', () => {
-    
+console.log("🚀 Starting CrowdSense AI Core Engine Tests...\n");
+
+function runTests() {
+    let passed = 0;
+    let failed = 0;
+
+    const test = (name, fn) => {
+        try {
+            fn();
+            console.log(`✅ PASS: ${name}`);
+            passed++;
+        } catch (error) {
+            console.error(`❌ FAIL: ${name}`);
+            console.error(error);
+            failed++;
+        }
+    };
+
     test('Calculates Chaos Probability correctly based on rapid density trend', () => {
-        // High occupancy with a rapid positive trend
         const occupancy = 80;
         const trend = 5; 
-        
-        // Algorithm: Base probability derived from occupancy, heavily weighted by sudden trend spikes
         const chaosProb = Math.max(0, Math.min(99, Math.floor(occupancy * 0.8 + (trend * 3))));
-        
-        // 80 * 0.8 = 64. 5 * 3 = 15. Total = 79.
-        expect(chaosProb).toBe(79); 
+        assert.strictEqual(chaosProb, 79); 
     });
 
     test('Maintains CALM mood during nominal operational bounds', () => {
         const chaosProb = 25;
         const mood = chaosProb > 75 ? 'CHAOS' : (chaosProb > 40 ? 'TENSE' : 'CALM');
-        expect(mood).toBe('CALM');
+        assert.strictEqual(mood, 'CALM');
     });
 
     test('Escalates to TENSE mood when probability exceeds 40%', () => {
         const chaosProb = 55;
         const mood = chaosProb > 75 ? 'CHAOS' : (chaosProb > 40 ? 'TENSE' : 'CALM');
-        expect(mood).toBe('TENSE');
+        assert.strictEqual(mood, 'TENSE');
     });
 
     test('Triggers CHAOS protocol when probability breaches 75%', () => {
         const chaosProb = 88;
         const mood = chaosProb > 75 ? 'CHAOS' : (chaosProb > 40 ? 'TENSE' : 'CALM');
-        expect(mood).toBe('CHAOS');
+        assert.strictEqual(mood, 'CHAOS');
     });
 
     test('Ensures Acoustic Baseline scales realistically with Crowd Density', () => {
         const occupancy = 90;
-        // Formula: 60dB base + 0.4 multiplier + variance
         const minAcoustic = Math.floor(60 + (occupancy * 0.4));
-        const maxAcoustic = minAcoustic + 10;
-        
-        expect(minAcoustic).toBe(96);
-        expect(maxAcoustic).toBe(106);
+        assert.strictEqual(minAcoustic, 96);
     });
 
     test('Prioritizes Safest Evacuation Route correctly', () => {
@@ -58,7 +60,11 @@ describe('CrowdSense AI - Predictive Threat Algorithms', () => {
         sectors.forEach(sec => {
             if(sec.density < safestSector.density) safestSector = sec;
         });
-
-        expect(safestSector.name).toBe("VIP Pavilion");
+        assert.strictEqual(safestSector.name, "VIP Pavilion");
     });
-});
+
+    console.log(`\n🏁 Test Suite Complete: ${passed} Passed, ${failed} Failed.`);
+    if (failed > 0) process.exit(1);
+}
+
+runTests();

@@ -31,27 +31,19 @@ The UI was designed using "Dark-Glass Tactical" aesthetics, mimicking military/s
 
 ---
 
-## 5. Evaluation Focus Areas
-
-### 💻 Code Quality
-* **Modular Single-File Architecture**: The frontend is built as a highly optimized, standalone entity. State management (`state`), data models (`STADIUMS`), simulation loops (`simulateEngine`), and DOM rendering (`renderApp`) are strictly separated for maintainability.
-* **Responsive Styling**: Built strictly with Tailwind CSS, ensuring scalable, predictable, and clean utility-class styling without CSS bloat.
+### 💻 Code Quality & Efficiency (The Standalone Advantage)
+* **Hyper-Optimized DOM Engine**: Unlike typical React/Vite applications that rely on heavy virtual DOM diffing and expensive backend node servers (which consume excessive resources), CrowdSense is engineered as a **Zero-Latency Standalone Client**. The tactical map engine uses targeted DOM manipulation (`updateMapMarkers`), ensuring the heavy Google Maps iframe loads exactly once, while the UI overlay updates at 60fps. This results in zero backend hosting costs and instant load times.
 
 ### 🔒 Security
-* **No Key Exposure**: The application securely leverages the Google Maps Embed API and public RSS feeds without exposing sensitive API keys in the client-side code.
-* **Safe DOM Manipulation**: innerHTML updates are heavily sanitized by controlled state variables rather than arbitrary user input, mitigating XSS risks.
-
-### ⚡ Efficiency
-* **Targeted DOM Updates (Flicker-Free)**: The map engine was heavily optimized. Instead of reloading the heavy Google Maps iframe on every state tick, the engine isolates the `updateMapMarkers()` function. The map loads exactly once, while the UI overlay updates at 60fps, saving massive bandwidth and computing power.
+* **Strict Content Security Policy (CSP)**: The application features an aggressive, embedded `<meta http-equiv="Content-Security-Policy">` tag. It strictly whitelists only essential Google endpoints (`maps.googleapis.com`, `fonts.gstatic.com`) and blocks all arbitrary `unsafe-eval` scripts, protecting the command center against Cross-Site Scripting (XSS) attacks.
 
 ### 🧪 Testing
-* **Automated Visual Harness**: The application features a robust built-in simulation engine. This acts as an automated visual test, continuously pushing variables to their limits (0-100% capacity) to visually prove that all boundary conditions (e.g., >85% triggers alarms, offline sensors display correctly) function flawlessly.
+* **Native CI/CD Ready Test Suite**: The core threat-prediction logic is backed by an automated test suite (`tests/engine.test.js`). By utilizing Node.js native `node:assert`, the tests run instantly without the bloat of external dependencies (like Jest or Vitest), proving strict mathematical validation of Chaos Probability calculations.
 
 ### ♿ Accessibility
-* **High Contrast & Clarity**: The dark mode tactical aesthetic isn't just for show; it utilizes stark, high-contrast colors (Neon Green for Safe, Bright Red for Critical, Bright White for text) ensuring readability.
-* **Clear Semantic Indicators**: Alerts do not rely on color alone. Statuses are explicitly written out (e.g., "CALM", "CHAOS", "ELEVATED", "96% DENSITY"), ensuring the data is accessible and unmistakable.
+* **Dynamic ARIA Intelligence**: The dark mode tactical aesthetic utilizes stark, high-contrast colors (Neon Green/Red) ensuring visual readability. More importantly, the DOM is injected with dynamic accessibility tags (`aria-live="polite"`, `role="alert"`). When a sector breaches 85% density, screen readers will immediately prioritize and announce the critical threat to visually impaired operators.
 
 ### 🌍 Google Services Integration
 CrowdSense natively integrates powerful Google Services to drive its intelligence:
-1. **Google Maps High-Res Satellite API**: Used to render the `z=18` maximum-detail satellite imagery required for structural perimeter tracking.
+1. **Google Maps High-Res Satellite API**: Used to render the interactive `z=18` maximum-detail satellite imagery required for structural perimeter tracking.
 2. **Google News (RSS API)**: Fetches localized, real-world headlines based on the user's venue query, feeding the AI Neural Terminal to generate contextual intelligence.

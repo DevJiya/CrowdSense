@@ -1,0 +1,44 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "venues": {
+      "$venue_id": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['name', 'density', 'timestamp'])",
+        "density": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        }
+      }
+    },
+    "alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp", "type"],
+      "$alert_id": {
+        ".validate": "newData.hasChildren(['type', 'message', 'timestamp'])",
+        "type": {
+          ".validate": "newData.isString() && (newData.val() === 'CRITICAL' || newData.val() === 'WARNING' || newData.val() === 'INFO')"
+        },
+        "message": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        }
+      }
+    },
+    "event_log": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"],
+      "$entry_id": {
+        ".validate": "newData.hasChildren(['event', 'timestamp'])"
+      }
+    }
+  }
+}

@@ -1,11 +1,31 @@
-# Use the official Nginx image as a base
-FROM nginx:alpine
+# ─────────────────────────────────────────────────────────────
+# CrowdSense AI — Production Dockerfile
+# Multi-stage build: Install deps cleanly then run server
+# ─────────────────────────────────────────────────────────────
 
-# Copy the static HTML, CSS, and JS files to the Nginx html directory
-COPY . /usr/share/nginx/html
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package.json ./
+RUN npm install --omit=dev
 
-# Expose port 80 for Cloud Run
-EXPOSE 80
+# ─────────────────────────────────────────────────────────────
+# Final stage: minimal image
+# ─────────────────────────────────────────────────────────────
+FROM node:22-alpine
+WORKDIR /app
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application source
+COPY . .
+
+# Expose the port Cloud Run maps to
+EXPOSE 3001
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD wget -qO- http://localhost:3001/ || exit 1
+
+# Launch the secure Express server
+CMD ["node", "server.js"]
