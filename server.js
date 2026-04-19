@@ -99,11 +99,11 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '512kb' })); // Reject oversized payloads
 
 // ─────────────────────────────────────────
-// 🤖 GEMINI 2.5 FLASH AI ENGINE
+// 🤖 GEMINI AI ENGINE
 // ─────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-04-17',
+    model: 'gemini-1.5-flash',
     systemInstruction: `You are CrowdSense AI, an expert real-time tactical intelligence analyst for stadium crowd management and public safety.
 Your role is to provide concise, actionable, and highly precise insights to security teams. You analyze crowd density data, news sentiment, and risk indicators.
 You must:
