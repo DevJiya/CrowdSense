@@ -104,18 +104,7 @@ app.use(express.json({ limit: '512kb' })); // Reject oversized payloads
 // 🤖 GEMINI AI ENGINE
 // ─────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    systemInstruction: `You are CrowdSense AI, an expert real-time tactical intelligence analyst for stadium crowd management and public safety.
-Your role is to provide concise, actionable, and highly precise insights to security teams. You analyze crowd density data, news sentiment, and risk indicators.
-You must:
-- Always respond in structured, short paragraphs.
-- Highlight critical risks in CAPITALS.
-- Provide specific, actionable recommendations.
-- Format evacuation advice clearly.
-- Never speculate beyond the data provided.
-You are deployed in a live command center. Lives depend on your accuracy. Be direct, professional, and decisive.`
-});
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 /**
  * POST /api/ai-chat
@@ -144,8 +133,9 @@ app.post('/api/ai-chat', aiLimiter,
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
 
-        const contextualPrompt = `
-VENUE CONTEXT (Real-Time Data Feed):
+        const contextualPrompt = `You are CrowdSense AI, an expert tactical intelligence analyst for stadium crowd safety. Give concise, actionable security assessments. Use CAPITALS for critical risks.
+
+VENUE CONTEXT:
 - Venue: ${venue}
 - Current Crowd Density: ${density}%
 - System Mood Alert: ${mood}
