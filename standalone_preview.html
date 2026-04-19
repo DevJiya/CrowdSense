@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrowdSense Pro | Advanced Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background: black; color: white; margin: 0; overflow-x: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .map-container { height: 600px; border-radius: 16px; overflow: hidden; border: 1px solid #27272a; position: relative; }
+        
+        /* Alert/Toast Styling (Based on your provided UI) */
+        #notification-stack { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; width: 380px; }
+        .alert-toast { 
+            display: flex; gap: 12px; padding: 16px; border-radius: 12px; background: #09090b; border: 1px solid #27272a;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: translateX(100%); opacity: 0; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .alert-toast.show { transform: translateX(0); opacity: 1; }
+        .alert-icon-wrap { width: 40px; height: 40px; border-radius: 8px; display: flex; items-center; justify-content: center; shrink: 0; }
+        .alert-primary { border-color: #2563eb; background: rgba(37, 99, 235, 0.05); }
+        .alert-destructive { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+        
+        .nav-link.active { color: white; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: #2563eb; }
+        
+        @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+        .map-scanner { position: absolute; inset: 0; background: linear-gradient(transparent, rgba(37, 99, 235, 0.1), transparent); height: 20%; animation: scan 3s linear infinite; pointer-events: none; z-index: 10; }
+    </style>
+</head>
+<body class="selection:bg-blue-500/30">
+
+    <div id="notification-stack"></div>
+
+    <nav class="border-b border-zinc-800 bg-black/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center font-black text-xs italic">CS</div>
+                <span class="font-black tracking-tighter text-lg uppercase">CrowdSense<span class="text-blue-500">Pro</span></span>
+            </div>
+            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[70%]" id="tabs-nav"></div>
+            <div class="hidden md:flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <div class="flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div> NEURAL STREAM
+                </div>
+                <div id="ist-clock">--:--:--</div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[1600px] mx-auto px-6 py-8 pb-24" id="main-view"></main>
+
+    <script>
+        const STADIUMS = {
+            wankhede: { name: "Wankhede Stadium, Mumbai", capacity: 33108, loc: [72.8258, 18.9389], zones: ["Gate A North", "Gate B South", "Upper Deck", "Lower Deck", "VIP Lounge", "Food Court", "Press Box", "Parking"] },
+            eden: { name: "Eden Gardens, Kolkata", capacity: 66349, loc: [88.3426, 22.5646], zones: ["Club House", "B Block", "North Stand", "South Stand", "VIP Pavilion", "Media Centre", "Outer Ring", "Concessions"] },
+            chinnaswamy: { name: "Chinnaswamy Stadium, Bengaluru", capacity: 40000, loc: [77.5983, 12.9784], zones: ["West Stand", "East Stand", "North Block", "South Block", "Executive Box", "Parking B", "Gate 1", "Concessions"] }
+        };
+
+        let STATE = { stadium: 'wankhede', tab: 'home', zones: {}, alerts: [], reports: [], occupancy: 0, riskyCount: 0, tick: 0 };
+
+        function boot() {
+            setStadium('wankhede');
+            renderNav();
+            switchTab('home');
+            setInterval(simulate, 3000);
+            setInterval(clock, 1000);
+        }
+
+        function setStadium(id) {
+            STATE.stadium = id;
+            const s = STADIUMS[id];
+            STATE.zones = {};
+            s.zones.forEach(z => {
+                STATE.zones[z] = { name: z, density: 15 + Math.random() * 25, level: 'safe', people: 0, coords: [s.loc[0] + (Math.random()-0.5)*0.005, s.loc[1] + (Math.random()-0.5)*0.005] };
+            });
+            refresh();
+        }
+
+        function simulate() {
+            STATE.tick++;
+            let risky = 0; let total = 0;
+            const s = STADIUMS[STATE.stadium];
+            Object.keys(STATE.zones).forEach(k => {
+                const z = STATE.zones[k];
+                z.density = Math.max(5, Math.min(99, Math.floor(z.density + (Math.random() * 16 - 8))));
+                z.level = z.density > 75 ? 'risky' : (z.density > 50 ? 'moderate' : 'safe');
+                if (z.level === 'risky') risky++;
+                total += Math.floor((s.capacity / 8) * (z.density / 100));
+            });
+            STATE.riskyCount = risky;
+            STATE.occupancy = Math.floor((total / s.capacity) * 100);
+
+            if (STATE.tick % 2 === 0) {
+                const msg = `Neural Alert: Sector ${s.zones[Math.floor(Math.random()*8)]} density breach.`;
+                const cat = risky > 2 ? 'destructive' : 'primary';
+                triggerNotification(cat, "CROWD ANOMALY", msg);
+                STATE.alerts.unshift({ id: Date.now(), cat, msg, time: new Date().toLocaleTimeString('en-GB') });
+            }
+            refresh();
+        }
+
+        function triggerNotification(variant, title, text) {
+            const stack = document.getElementById('notification-stack');
+            const toast = document.createElement('div');
+            toast.className = `alert-toast alert-${variant}`;
+            const icon = variant === 'destructive' ? '<i data-lucide="alert-triangle" class="text-red-500"></i>' : '<i data-lucide="info" class="text-blue-500"></i>';
+            toast.innerHTML = `
+                <div class="alert-icon-wrap">${icon}</div>
+                <div class="flex-1">
+                    <div class="text-xs font-black uppercase tracking-widest text-zinc-200 mb-1">${title}</div>
+                    <div class="text-sm text-zinc-400 font-medium">${text}</div>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-zinc-600 hover:text-white transition-colors">✕</button>
+            `;
+            stack.appendChild(toast);
+            lucide.createIcons();
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 5000);
+        }
+
+        function renderNav() {
+            const nav = document.getElementById('tabs-nav');
+            nav.innerHTML = [
+                { id: 'home', label: 'Overview' },
+                { id: 'map', label: 'Live Map' },
+                { id: 'alerts', label: 'Alerts' },
+                { id: 'assistant', label: 'AI Assistant' },
+                { id: 'trust', label: 'Trust' },
+                { id: 'detector', label: 'Detector' },
+                { id: 'safety', label: 'Vibe' },
+                { id: 'insights', label: 'Insights' }
+            ].map(t => `<button onclick="switchTab('${t.id}')" id="btn-${t.id}" class="nav-link px-4 py-2 text-[10px] font-black uppercase tracking-widest relative whitespace-nowrap text-zinc-500 hover:text-zinc-300 transition-all">${t.label}</button>`).join('');
+        }
+
+        function switchTab(id) {
+            STATE.tab = id;
+            document.querySelectorAll('.nav-link').forEach(btn => btn.classList.toggle('active', btn.id === `btn-${id}`));
+            refresh();
+        }
+
+        function refresh() {
+            const view = document.getElementById('main-view');
+            const id = STATE.tab;
+            if (id === 'home') renderHome(view);
+            else if (id === 'map') renderMap(view);
+            else if (id === 'alerts') renderAlerts(view);
+            else if (id === 'assistant') renderAssistant(view);
+            else view.innerHTML = `<div class="py-20 text-center font-black text-zinc-700 uppercase tracking-[0.3em] text-xs">Processing Neural Stream for ${id}...</div>`;
+        }
+
+        function renderHome(v) {
+            v.innerHTML = `
+                <div class="grid grid-cols-4 gap-6 mb-8">
+                    ${drawCard('OCCUPANCY', STATE.occupancy+'%', STATE.occupancy > 80 ? 'text-red-500' : 'text-green-500')}
+                    ${drawCard('RISKY ZONES', STATE.riskyCount, 'text-red-500')}
+                    ${drawCard('VENUE VIBE', 'ELECTRIC', 'text-blue-500')}
+                    ${drawCard('SENSORS', 'ACTIVE', 'text-zinc-300')}
+                </div>
+                <div class="grid grid-cols-3 gap-8">
+                    <div class="col-span-2 grid grid-cols-2 gap-4">${Object.values(STATE.zones).map(z => `
+                        <div class="p-4 border border-zinc-900 bg-zinc-950/50 rounded-xl">
+                            <div class="flex justify-between mb-2"><span class="font-bold text-xs text-zinc-200">${z.name}</span><span class="text-[9px] font-black uppercase ${z.level==='risky'?'text-red-500':'text-zinc-600'}">${z.level}</span></div>
+                            <div class="h-1 bg-zinc-900 rounded-full"><div class="h-full bg-blue-600 transition-all duration-700" style="width:${z.density}%"></div></div>
+                        </div>
+                    `).join('')}</div>
+                    <div class="bg-zinc-950 border border-zinc-900 rounded-xl p-6 overflow-y-auto max-h-[500px] no-scrollbar">
+                        <div class="text-[9px] font-black text-zinc-600 mb-4 uppercase tracking-[0.2em]">Neural Feed</div>
+                        ${STATE.alerts.slice(0, 10).map(a => `<div class="mb-3 p-3 bg-zinc-900/40 rounded text-[10px] border-l-2 ${a.cat==='destructive'?'border-red-500':'border-blue-500'} font-medium text-zinc-400">${a.msg}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function drawCard(l, v, c) { return `<div class="bg-zinc-950 border border-zinc-900 p-6 rounded-xl"><div class="text-[9px] font-black text-zinc-500 mb-1 uppercase tracking-widest">${l}</div><div class="text-3xl font-black ${c} tracking-tighter">${v}</div></div>`; }
+
+        function renderMap(v) {
+            v.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div class="md:col-span-3 map-container" id="map-target"><div class="map-scanner"></div></div>
+                    <div class="space-y-6">
+                        <div class="bg-zinc-950 border border-zinc-900 p-6 rounded-xl">
+                            <div class="text-[10px] font-black text-zinc-400 mb-4 uppercase tracking-widest">Map Legend</div>
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3"><div class="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div> <span class="text-[10px] font-bold text-zinc-200">RISKY (>75%)</span></div>
+                                <div class="flex items-center gap-3"><div class="w-3 h-3 bg-blue-600 rounded-full"></div> <span class="text-[10px] font-bold text-zinc-200">NORMAL</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-blue-600/10 border border-blue-500/30 p-6 rounded-xl">
+                            <div class="text-[10px] font-black text-blue-400 mb-2 uppercase tracking-widest">Venue Telemetry</div>
+                            <div class="text-xs font-bold text-zinc-300">Scanning ${Object.keys(STATE.zones).length} sector nodes at ${STADIUMS[STATE.stadium].name.split(',')[0]}...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => {
+                const map = new maplibregl.Map({ container: 'map-target', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', center: STADIUMS[STATE.stadium].loc, zoom: 16.5 });
+                Object.values(STATE.zones).forEach(z => {
+                    const el = document.createElement('div'); el.className = `w-12 h-12 rounded-full border-2 flex items-center justify-center text-[10px] font-black ${z.level==='risky'?'bg-red-600 border-red-200 animate-pulse scale-125 shadow-2xl shadow-red-500/50':'bg-blue-600 border-blue-200'} text-white transition-all`; el.innerText = z.density+'%';
+                    new maplibregl.Marker(el).setLngLat(z.coords).addTo(map);
+                });
+            }, 100);
+        }
+
+        function clock() { document.getElementById('ist-clock').innerText = new Date().toLocaleTimeString('en-GB'); }
+        boot();
+    </script>
+</body>
+</html>

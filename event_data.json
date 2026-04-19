@@ -1,0 +1,59 @@
+{
+  "event_id": "DEL-STANDUP-2024",
+  "event_name": "Zakir Khan Live — Talkatora Stadium",
+  "location": "Talkatora Indoor Stadium, New Delhi",
+  "date": "2024-05-15",
+  "total_attendance": 4820,
+  "capacity": 5000,
+  "start_time": "18:30",
+  "end_time": "21:00",
+  "zones": [
+    {
+      "id": "gate-1",
+      "name": "Main Entrance (Gate 1)",
+      "congestion_level": 88,
+      "avg_wait_min": 24,
+      "signals": ["High flow", "Surge detected at 18:15", "Security bottleneck"],
+      "vibe": "risky"
+    },
+    {
+      "id": "gate-2",
+      "name": "North Gate (VIP)",
+      "congestion_level": 32,
+      "avg_wait_min": 5,
+      "signals": ["Low flow", "Stable movement"],
+      "vibe": "safe"
+    },
+    {
+      "id": "food-court",
+      "name": "Basement Food Court",
+      "congestion_level": 75,
+      "avg_wait_min": 18,
+      "signals": ["Queued", "High message volume"],
+      "vibe": "moderate"
+    },
+    {
+      "id": "washroom-a",
+      "name": "Washrooms (Ground Floor)",
+      "congestion_level": 92,
+      "avg_wait_min": 12,
+      "signals": ["Compressed", "Complaints in messages"],
+      "vibe": "risky"
+    }
+  ],
+  "user_reports": [
+    { "type": "verified", "count": 142, "description": "Accurate crowd updates", "weight": 1.0 },
+    { "type": "uncertain", "count": 28, "description": "Exaggerated wait times", "weight": 0.4 },
+    { "type": "suppressed", "count": 12, "description": "Panic-inducing/False claims", "weight": -0.8 }
+  ],
+  "incident_log": [
+    { "time": "18:22", "severity": "medium", "type": "Crowd Surge", "location": "Gate 1", "status": "Resolved" },
+    { "time": "19:45", "severity": "low", "type": "Verbal Dispute", "location": "Food Court", "status": "Handled" }
+  ],
+  "safety_signals": {
+    "movement_stability": 72,
+    "average_mood_score": 68,
+    "panic_triggers_detected": 3,
+    "emergency_exit_clarity": 95
+  }
+}

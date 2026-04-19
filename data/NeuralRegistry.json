@@ -1,0 +1,21 @@
+{
+    "metadata": {
+        "version": "4.0.0",
+        "last_update": "2026-04-19T15:38:00Z",
+        "security_level": "High-Grade",
+        "active_nodes": 12
+    },
+    "stadium_database": [
+        { "id": "eden", "name": "Eden Gardens", "city": "Kolkata", "capacity": 66000 },
+        { "id": "wankhede", "name": "Wankhede Stadium", "city": "Mumbai", "capacity": 33108 },
+        { "id": "chinnaswamy", "name": "M. Chinnaswamy", "city": "Bengaluru", "capacity": 35000 },
+        { "id": "narendra", "name": "Narendra Modi Stadium", "city": "Ahmedabad", "capacity": 132000 }
+    ],
+    "global_watch_list": [
+        "MCG, Melbourne",
+        "Lord's, London",
+        "MetLife, USA",
+        "Camp Nou, Barcelona",
+        "Santiago Bernabéu, Madrid"
+    ]
+}
