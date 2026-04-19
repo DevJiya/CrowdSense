@@ -684,28 +684,47 @@
                     }),
                 });
 
+                if (!res.ok) {
+                    let errStr = `HTTP Error ${res.status}`;
+                    try {
+                        const errData = await res.json();
+                        errStr = errData.error || errStr;
+                    } catch(e) {}
+                    throw new Error(errStr);
+                }
+
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
+                let buffer = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-                    for (const line of lines) {
-                        const data = line.replace('data: ', '').trim();
-                        if (data === '[DONE]') break;
-                        try {
-                            const parsed = JSON.parse(data);
-                            if (parsed.text) {
-                                fullResponse += parsed.text;
-                                if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                    buffer += decoder.decode(value, { stream: true });
+                    const parts = buffer.split('\n\n');
+                    buffer = parts.pop();
+
+                    for (const part of parts) {
+                        const lines = part.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const data = line.replace('data: ', '').trim();
+                                if (data === '[DONE]') break;
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    if (parsed.text) {
+                                        fullResponse += parsed.text;
+                                        if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                                    } else if (parsed.error) {
+                                        throw new Error(parsed.error);
+                                    }
+                                } catch(_) {}
                             }
-                        } catch(_) {}
+                        }
                     }
                 }
             } catch (err) {
-                fullResponse = `⚠️ AI Engine temporarily offline. Fallback analysis:\n\nBased on current data for ${s.name}: Density is at ${Math.floor(s.occ)}% with ${s.mood} status. Chaos probability stands at ${s.chaosProb}%. Primary evacuation recommended via ${s.evacRoute}.`;
+                fullResponse = fullResponse ? fullResponse + `\n\n⚠️ ${err.message}` : `⚠️ Connection Error: ${err.message}`;
                 if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
             }
 
