@@ -665,73 +665,59 @@
             chatHistory[state.priorityId].push({ role: 'user', text: message.trim() });
             renderApp();
 
-            // Show typing indicator
             const typingEl = document.getElementById('ai-typing-indicator');
             const streamEl = document.getElementById('ai-stream-output');
             if (typingEl) { typingEl.classList.remove('hidden'); typingEl.classList.add('flex'); }
 
             let fullResponse = '';
+            const GEMINI_KEY = 'AIzaSyDHTRkCNs79C-a96w7kB4y0C5Pnr3wdHiE';
+            const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
+            const ctx = `VENUE: ${s.name} | DENSITY: ${Math.floor(s.occ)}% | MOOD: ${s.mood} | CHAOS: ${s.chaosProb}% | EVAC ROUTE: ${s.evacRoute}`;
 
             try {
-                const res = await fetch('/api/ai-chat', {
+                const res = await fetch(GEMINI_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: message.trim(),
-                        venue: s.name,
-                        density: Math.floor(s.occ),
-                        mood: s.mood,
-                    }),
+                        system_instruction: { parts: [{ text: 'You are CrowdSense AI, an expert tactical intelligence analyst for stadium crowd safety. Give concise, actionable security assessments. Use CAPITALS for critical risks.' }] },
+                        contents: [{ role: 'user', parts: [{ text: ctx + '\n\nQUERY: ' + message.trim() }] }],
+                        generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+                    })
                 });
-
                 if (!res.ok) {
-                    let errStr = `HTTP Error ${res.status}`;
-                    try {
-                        const errData = await res.json();
-                        errStr = errData.error || errStr;
-                    } catch(e) {}
-                    throw new Error(errStr);
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData?.error?.message || `API Error ${res.status}`);
                 }
-
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
-                let buffer = '';
-
+                let buf = '';
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const parts = buffer.split('\n\n');
-                    buffer = parts.pop();
-
+                    buf += decoder.decode(value, { stream: true });
+                    const parts = buf.split('\n\n');
+                    buf = parts.pop();
                     for (const part of parts) {
-                        const lines = part.split('\n');
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const data = line.replace('data: ', '').trim();
-                                if (data === '[DONE]') break;
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.text) {
-                                        fullResponse += parsed.text;
-                                        if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
-                                    } else if (parsed.error) {
-                                        throw new Error(parsed.error);
-                                    }
-                                } catch(_) {}
-                            }
+                        for (const line of part.split('\n')) {
+                            if (!line.startsWith('data: ')) continue;
+                            const raw = line.slice(6).trim();
+                            if (raw === '[DONE]') continue;
+                            try {
+                                const chunk = JSON.parse(raw);
+                                const txt = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (txt) { fullResponse += txt; if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>'); }
+                            } catch(_){}
                         }
                     }
                 }
-            } catch (err) {
-                fullResponse = fullResponse ? fullResponse + `\n\n⚠️ ${err.message}` : `⚠️ Connection Error: ${err.message}`;
-                if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                if (!fullResponse) fullResponse = '⚠️ Empty response from AI. Please try again.';
+            } catch(err) {
+                fullResponse = '⚠️ AI Error: ' + err.message;
+                if (streamEl) streamEl.innerHTML = fullResponse;
             }
 
             chatHistory[state.priorityId].push({ role: 'ai', text: fullResponse });
             renderApp();
-
-            // Scroll to bottom
             const chatEl = document.getElementById('chat-messages');
             if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
         }
