@@ -22,6 +22,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust the Google Cloud Run proxy so express-rate-limit works properly
+app.set('trust proxy', 1);
+
 // ─────────────────────────────────────────
 // 🛡️ SECURITY LAYER — Helmet CSP
 // ─────────────────────────────────────────
