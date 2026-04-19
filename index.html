@@ -159,9 +159,31 @@
         }
 
         // TARGET MANAGEMENT
+        const KNOWN_COORDS = {
+            "narendra modi": "23.0919,72.5975",
+            "wembley": "51.5560,-0.2795",
+            "camp nou": "41.3809,2.1228",
+            "bernabeu": "40.4530,-3.6883",
+            "mcg": "-37.8199,144.9834",
+            "melbourne cricket": "-37.8199,144.9834",
+            "eden gardens": "22.5646,88.3433",
+            "wankhede": "18.9388,72.8258",
+            "metlife": "40.8128,-74.0745",
+            "maracana": "-22.9121,-43.2302"
+        };
+
         function addStadium(query, startOcc = 20, isInitial = false) {
             const id = 'S_' + Date.now() + Math.floor(Math.random()*1000);
             const name = query.split(',')[0].substring(0, 25);
+            
+            let mapQuery = query;
+            const qLower = query.toLowerCase();
+            for(let key in KNOWN_COORDS) {
+                if(qLower.includes(key)) {
+                    mapQuery = KNOWN_COORDS[key];
+                    break;
+                }
+            }
             
             const pickedGates = shuffle([...GATE_NAMES]).slice(0, 4);
             
@@ -177,7 +199,7 @@
             });
 
             STADIUMS[id] = { 
-                id, query: encodeURIComponent(query), name, 
+                id, query: encodeURIComponent(mapQuery), name, 
                 occ: startOcc, trend: 0,
                 mood: 'CALM', chaosProb: 10, acoustic: 65, evacRoute: pickedGates[0],
                 sectors, news: [], aiReportRaw: "", aiReportDisplayed: ""
