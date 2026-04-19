@@ -6,6 +6,7 @@
     <title>CrowdSense AI | Tactical Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/marked@12.0.0/marked.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         :root { --bg: #0a0a0a; --card: rgba(31,31,31,0.4); --border: #333; }
@@ -42,6 +43,14 @@
         /* LIVE TERMINAL EFFECT */
         .terminal-cursor::after { content: '█'; animation: blink 1s step-start infinite; color: #3B82F6; margin-left: 4px; }
         @keyframes blink { 50% { opacity: 0; } }
+
+        /* MARKDOWN STYLES */
+        .prose p { margin-bottom: 0.5rem; }
+        .prose p:last-child { margin-bottom: 0; }
+        .prose strong { color: #60A5FA; font-weight: 700; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .prose li { margin-bottom: 0.25rem; }
     </style>
 </head>
 <body class="flex flex-col h-screen relative">
@@ -596,20 +605,20 @@
                                 </div>` :
                                 msgs.map(m => `
                                     <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
-                                        <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                                        <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose ${
                                             m.role === 'user'
                                             ? 'bg-blue-500/20 border border-blue-500/30 text-white rounded-br-sm'
                                             : 'bg-[rgba(255,255,255,0.04)] border border-[#333] text-gray-200 rounded-bl-sm'
                                         }">
-                                            ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5">Gemini 2.5 — Tactical AI</div>' : ''}
-                                            ${m.text.replace(/\n/g, '<br/>')}
+                                            ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Tactical AI</div>' : ''}
+                                            ${m.role === 'ai' ? marked.parse(m.text) : m.text.replace(/\n/g, '<br/>')}
                                         </div>
                                     </div>
                                 `).join('')
                             }
                             <div id="ai-typing-indicator" class="hidden justify-start">
-                                <div class="px-4 py-3 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[#333]">
-                                    <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5">Gemini 2.5 — Processing...</div>
+                                <div class="px-4 py-3 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[#333] max-w-[80%] prose">
+                                    <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Processing...</div>
                                     <div id="ai-stream-output" class="text-sm text-gray-200 leading-relaxed terminal-cursor"></div>
                                 </div>
                             </div>
@@ -707,7 +716,7 @@
                                 const parsed = JSON.parse(raw);
                                 if (parsed.text) {
                                     fullResponse += parsed.text;
-                                    if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                                    if (streamEl) streamEl.innerHTML = marked.parse(fullResponse);
                                 } else if (parsed.error) {
                                     throw new Error(parsed.error);
                                 }
