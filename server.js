@@ -82,16 +82,18 @@ app.use(cors({
 // ⚡ RATE LIMITING — Prevent API abuse
 // ─────────────────────────────────────────
 const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { xForwardedForHeader: false }, // Cloud Run sets this header; disable validation
     message: { error: 'Too many requests. Please wait before retrying.' },
 });
 
 const aiLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 15, // Max 15 AI queries per minute
+    windowMs: 1 * 60 * 1000,
+    max: 20,
+    validate: { xForwardedForHeader: false }, // Cloud Run sets this header; disable validation
     message: { error: 'AI query rate limit reached. Please wait.' },
 });
 

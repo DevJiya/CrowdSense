@@ -670,27 +670,28 @@
             if (typingEl) { typingEl.classList.remove('hidden'); typingEl.classList.add('flex'); }
 
             let fullResponse = '';
-            const GEMINI_KEY = 'AIzaSyDHTRkCNs79C-a96w7kB4y0C5Pnr3wdHiE';
-            const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
-            const ctx = `VENUE: ${s.name} | DENSITY: ${Math.floor(s.occ)}% | MOOD: ${s.mood} | CHAOS: ${s.chaosProb}% | EVAC ROUTE: ${s.evacRoute}`;
 
             try {
-                const res = await fetch(GEMINI_URL, {
+                const res = await fetch('/api/ai-chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        systemInstruction: { parts: [{ text: 'You are CrowdSense AI, an expert tactical intelligence analyst for stadium crowd safety. Give concise, actionable security assessments. Use CAPITALS for critical risks.' }] },
-                        contents: [{ role: 'user', parts: [{ text: ctx + '\n\nQUERY: ' + message.trim() }] }],
-                        generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
-                    })
+                        message: message.trim(),
+                        venue: s.name,
+                        density: Math.floor(s.occ),
+                        mood: s.mood,
+                    }),
                 });
+
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData?.error?.message || `API Error ${res.status}`);
+                    throw new Error(errData?.error || `Server error ${res.status}`);
                 }
+
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let buf = '';
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -703,16 +704,22 @@
                             const raw = line.slice(6).trim();
                             if (raw === '[DONE]') continue;
                             try {
-                                const chunk = JSON.parse(raw);
-                                const txt = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
-                                if (txt) { fullResponse += txt; if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>'); }
-                            } catch(_){}
+                                const parsed = JSON.parse(raw);
+                                if (parsed.text) {
+                                    fullResponse += parsed.text;
+                                    if (streamEl) streamEl.innerHTML = fullResponse.replace(/\n/g, '<br/>');
+                                } else if (parsed.error) {
+                                    throw new Error(parsed.error);
+                                }
+                            } catch(_) {}
                         }
                     }
                 }
-                if (!fullResponse) fullResponse = '⚠️ Empty response from AI. Please try again.';
+
+                if (!fullResponse) fullResponse = '⚠️ No response from AI. Please try again.';
+
             } catch(err) {
-                fullResponse = '⚠️ AI Error: ' + err.message;
+                fullResponse = `⚠️ AI Error: ${err.message}`;
                 if (streamEl) streamEl.innerHTML = fullResponse;
             }
 
