@@ -671,7 +671,7 @@
 
             let fullResponse = '';
             const GEMINI_KEY = 'AIzaSyDHTRkCNs79C-a96w7kB4y0C5Pnr3wdHiE';
-            const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
+            const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
             const ctx = `VENUE: ${s.name} | DENSITY: ${Math.floor(s.occ)}% | MOOD: ${s.mood} | CHAOS: ${s.chaosProb}% | EVAC ROUTE: ${s.evacRoute}`;
 
             try {
