@@ -1,0 +1,13 @@
+# Environment
+.DS_Store
+Thumbs.db
+*.log
+
+# Project specific
+node_modules/
+.next/
+out/
+build/
+.env*
+credentials.json
+firebase-config.js
