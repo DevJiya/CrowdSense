@@ -35,9 +35,10 @@ app.use(helmet({
                 "https://cdn.tailwindcss.com",
                 "https://unpkg.com",
             ],
+            scriptSrcAttr: ["'unsafe-inline'"], // Fixes blocked onclick events
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https://cdn.pixabay.com", "https://*.google.com", "https://*.googleapis.com"],
+            imgSrc: ["*", "data:"], // Fixes blocked Pixabay background
             connectSrc: [
                 "'self'",
                 "https://api.rss2json.com",
