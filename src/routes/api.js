@@ -24,6 +24,12 @@ import { validate } from '../validators/validate.middleware.js';
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+/**
+ * GET /api
+ * Health check endpoint.
+ */
+router.get('/', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
+
 // ─── TACTICAL AI ENDPOINTS ──────────────────────────────────────────
 /**
  * POST /api/ai-chat

@@ -6,7 +6,7 @@
  * @requires dotenv
  */
 
-import { GoogleGenerativeAI } from '@google-cloud/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
 import { AppError } from '../errors/AppError.js';

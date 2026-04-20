@@ -64,6 +64,21 @@ export default [
     },
   },
   {
+    files: ['tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    rules: {
+      'no-console': 'off',
+      'no-unused-vars': 'off',
+      'no-param-reassign': 'off',
+    },
+  },
+  {
     ignores: ['node_modules/', 'dist/', 'coverage/', '.env', '*.md'],
   },
 ];

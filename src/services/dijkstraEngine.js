@@ -52,14 +52,16 @@ const FAKE_SITUATIONS = [
   { type: 'RISKY', msg: 'Water pipe burst in Stand C. Area partially blocked.', icon: '💧' },
 ];
 
-window.GLOBAL_STATE = {
-  currentStadium: 'wankhede',
-  venue: { density: 'LOW', safety: 'SAFE', trust: 92, attendance: 0, occupancy: 0 },
-  zones: {},
-  alerts: [],
-  tick: 0,
-  activeSituation: null,
-};
+if (typeof window !== 'undefined') {
+  window.GLOBAL_STATE = {
+    currentStadium: 'wankhede',
+    venue: { density: 'LOW', safety: 'SAFE', trust: 92, attendance: 0, occupancy: 0 },
+    zones: {},
+    alerts: [],
+    tick: 0,
+    activeSituation: null,
+  };
+}
 
 // Declarations shifted below...
 
@@ -307,12 +309,14 @@ function updateText(elementId, textContentValue) {
 }
 
 // ── INITIALIZE ──
-window.initStadiumSelector = initStadiumSelector;
-window.switchStadium = switchStadium;
-window.startHeartbeat = startHeartbeat;
+if (typeof window !== 'undefined') {
+  window.initStadiumSelector = initStadiumSelector;
+  window.switchStadium = switchStadium;
+  window.startHeartbeat = startHeartbeat;
 
-document.addEventListener('DOMContentLoaded', () => {
-  window.initStadiumSelector();
-  window.switchStadium('wankhede');
-  window.startHeartbeat();
-});
+  document.addEventListener('DOMContentLoaded', () => {
+    window.initStadiumSelector();
+    window.switchStadium('wankhede');
+    window.startHeartbeat();
+  });
+}

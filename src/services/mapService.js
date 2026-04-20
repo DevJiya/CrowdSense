@@ -5,13 +5,16 @@
  * @requires GLOBAL_STATE
  */
 
-// ── MAP.JS — Neural Stadium Map Visualizer ──
+// -- MAP.JS -- Neural Stadium Map Visualizer --
 
 /**
  * Initializes the tactical stadium map.
  * @fires init
  */
 export function initMap() {
+  if (typeof document === 'undefined') {
+    return;
+  }
   const mapContainerElement = document.getElementById('stadium-map');
   if (!mapContainerElement) {
     return;
@@ -42,11 +45,17 @@ export function initMap() {
  * Updates the map zones SVG elements based on the current global state.
  */
 function updateMapZones() {
+  if (typeof document === 'undefined') {
+    return;
+  }
   const mapLayerElement = document.getElementById('map-zones-layer');
   if (!mapLayerElement) {
     return;
   }
 
+  if (typeof window === 'undefined') {
+    return;
+  }
   const venueState = window.GLOBAL_STATE;
   const zoneIds = Object.keys(venueState.zones);
 

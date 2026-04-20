@@ -23,7 +23,7 @@ export const SecurityMiddleware = {
    */
   globalRateLimit: rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: process.env.NODE_ENV === 'test' ? 1000 : 100,
     message: { error: 'Too many requests from this IP.' },
   }),
 
@@ -33,7 +33,7 @@ export const SecurityMiddleware = {
    */
   aiRateLimit: rateLimit({
     windowMs: 2000,
-    max: 1,
+    max: process.env.NODE_ENV === 'test' ? 1000 : 1,
     message: { error: 'Tactical AI limit reached. Wait 2s.' },
   }),
 };
