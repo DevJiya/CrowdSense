@@ -5,25 +5,37 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        databaseURL: process.env.FIREBASE_DATABASE_URL
-    });
+const MOCK_MODE = !process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+if (MOCK_MODE) {
+    console.warn('⚠️ [Google Cloud] Running in OFFLINE MOCK MODE. No live cloud writes will occur.');
 }
 
-const bq = new BigQuery();
-const storage = new Storage();
-const db = admin.database();
+// Initialize Firebase Admin
+if (!admin.apps.length && !MOCK_MODE) {
+    try {
+        admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+            databaseURL: process.env.FIREBASE_DATABASE_URL
+        });
+    } catch (e) {
+        console.error('Firebase Init Failed', e.message);
+    }
+}
+
+const bq = MOCK_MODE ? null : new BigQuery();
+const storage = MOCK_MODE ? null : new Storage();
+const db = (MOCK_MODE || !admin.apps.length) ? null : admin.database();
 
 export const GoogleServices = {
     /**
      * Logs an analytics event to BigQuery.
-     * @param {string} eventType - Type of action (e.g., 'SEARCH', 'AI_QUERY').
-     * @param {Object} metadata - Additional event data.
      */
     async logEvent(eventType, metadata) {
+        if (MOCK_MODE) {
+            console.log(`[MOCK BigQuery] Event: ${eventType}`, metadata);
+            return;
+        }
         try {
             const datasetId = 'crowdsense_analytics';
             const tableId = 'events';
@@ -41,10 +53,12 @@ export const GoogleServices = {
 
     /**
      * Updates real-time telemetry in Firebase RTDB.
-     * @param {string} stadiumId - ID of the stadium.
-     * @param {Object} data - Telemetry data.
      */
     async updateTelemetry(stadiumId, data) {
+        if (MOCK_MODE || !db) {
+            console.log(`[MOCK RTDB] Telemetry for ${stadiumId}:`, data);
+            return;
+        }
         try {
             await db.ref(`telemetry/${stadiumId}`).set({
                 ...data,
@@ -57,10 +71,12 @@ export const GoogleServices = {
 
     /**
      * Uploads a file to Google Cloud Storage.
-     * @param {Buffer} buffer - File content.
-     * @param {string} filename - Destination filename.
      */
     async uploadFile(buffer, filename) {
+        if (MOCK_MODE) {
+            console.log(`[MOCK GCS] Uploaded ${filename}`);
+            return `https://mock-storage.googleapis.com/${filename}`;
+        }
         try {
             const bucketName = process.env.GCS_BUCKET_NAME;
             const file = storage.bucket(bucketName).file(filename);

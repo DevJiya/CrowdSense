@@ -1,58 +1,53 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-/**
- * Service for interacting with Google Gemini AI.
- * Encapsulates prompt engineering and streaming logic.
- */
 export const GeminiService = {
     /**
-     * Streams a tactical security assessment from Gemini.
-     * 
-     * @param {Object} params - The context for the AI.
-     * @param {string} params.message - The operator's query.
-     * @param {string} params.venue - Name of the stadium/venue.
-     * @param {number} params.density - Current crowd occupancy percentage.
-     * @param {string} params.mood - Current detected atmosphere (e.g., CALM, TENSE).
-     * @param {Object} res - Express response object for streaming.
-     * @returns {Promise<void>}
-     */
-    /**
-     * Streams a tactical narration based on pre-computed analytical data.
-     * 
-     * @param {Object} params - The analytical context.
-     * @param {string} params.message - The operator's query.
-     * @param {Object} params.analysis - Pre-computed analysis from CrowdAnalyticsService.
+     * Streams a tactical narration of analytics results.
+     * @param {Object} data - { message, analysis, language }
      * @param {Object} res - Express response object.
      */
-    async streamNarration({ message, analysis }, res) {
-        const contextualPrompt = `You are CrowdSense AI, a tactical narrator. Your job is to PHRASE and COMMUNICATE the following pre-computed security data to the operator. Do NOT run your own calculations.
+    async streamNarration({ message, analysis, language = 'English' }, res) {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-DATA FEED:
-- Bottlenecks: ${JSON.stringify(analysis.bottlenecks)}
-- Recommended Evacuation: ${analysis.evacuation_route}
-- Risk Level: ${analysis.overall_risk}
-
-OPERATOR QUERY: ${message}
-
-Provide a concise, professional verbal readout of this data.`;
+        const prompt = `
+            You are the CrowdSense AI Tactical Assistant.
+            
+            CONTEXT:
+            - Venue: ${analysis.venue || 'Active Stadium'}
+            - Risk Level: ${analysis.overall_risk}
+            - Bottlenecks: ${JSON.stringify(analysis.bottlenecks)}
+            - Evacuation Route: ${analysis.evacuation_route}
+            
+            USER QUERY: "${message}"
+            
+            TASK:
+            1. Respond in ${language}.
+            2. Provide a concise, tactical assessment.
+            3. Use a professional, security-oriented tone.
+            4. Keep it under 100 words.
+        `;
 
         try {
-            const stream = await model.generateContentStream(contextualPrompt);
-            for await (const chunk of stream.stream) {
+            const result = await model.generateContentStream(prompt);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            for await (const chunk of result.stream) {
                 const text = chunk.text();
-                if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+                res.write(`data: ${JSON.stringify({ text })}\n\n`);
             }
-            res.write(`data: [DONE]\n\n`);
+
+            res.write('data: [DONE]\n\n');
             res.end();
         } catch (error) {
-            console.error('[GeminiService Error]', error.message);
-            res.write(`data: ${JSON.stringify({ error: 'Narration Engine unavailable.' })}\n\n`);
+            console.error('[Gemini Error]', error.message);
+            res.write(`data: ${JSON.stringify({ error: 'AI narration failed' })}\n\n`);
             res.end();
         }
     }
