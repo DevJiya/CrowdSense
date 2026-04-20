@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────
+# .gcloudignore — Exclude secrets from Cloud Builds
+# ─────────────────────────────────────────
+
+.git
+.gitignore
+node_modules/
+
+# Secrets & Environment
+.env
+.env.local
+*.p12
+*.json
+!event_data.json
+!package.json
+
+# Local IDE
+.vscode/
+.idea/
+.DS_Store

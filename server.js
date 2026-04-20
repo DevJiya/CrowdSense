@@ -19,7 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─────────────────────────────────────────
-// 🛡️ CONFIGURATION & MIDDLEWARE
+// 🛡️ SECURITY LAYER — Helmet & CORS
 // ─────────────────────────────────────────
 
 app.set('trust proxy', 1);
@@ -39,26 +39,52 @@ app.use(helmet({
             upgradeInsecureRequests: [],
         },
     },
-    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'same-origin' },
+    xssFilter: true,
+    noSniff: true,
+    hidePoweredBy: true,
 }));
 
-app.use(cors());
+const allowedOrigins = [
+    'http://localhost:3001',
+    'http://localhost:8080',
+    'https://crowdsense-87844475027.us-central1.run.app',
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Blocked by CORS Policy: Unauthorized origin.'));
+        }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+}));
+
 app.use(express.json({ limit: '512kb' }));
 
 // ─────────────────────────────────────────
-// ⚡ RATE LIMITERS
+// ⚡ RATE LIMITING
 // ─────────────────────────────────────────
 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
     validate: { xForwardedForHeader: false },
+    message: { error: 'Global rate limit exceeded. Please wait 15 minutes.' },
 });
 
 const aiLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000,
-    max: 20,
+    windowMs: 2 * 1000,
+    max: 1, // 1 req / 2s per IP
+    standardHeaders: true,
+    legacyHeaders: false,
     validate: { xForwardedForHeader: false },
+    message: { error: 'AI Command throttled. Please wait 2 seconds between queries.' },
 });
 
 app.use(globalLimiter);
