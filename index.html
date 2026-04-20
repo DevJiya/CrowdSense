@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/marked@12.0.0/marked.min.js"></script>
+    <!-- Google & Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places,geometry"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         :root { --bg: #0a0a0a; --card: rgba(31,31,31,0.4); --border: #333; }
@@ -132,28 +137,56 @@
         const GATE_NAMES = ["VIP Pavilion", "Main Concourse", "Gate A1", "Gate B2", "Away Sector", "Home End", "Premium Lounge", "Lower Tier", "Upper Deck"];
         let typingInterval;
 
-        function init() {
-            addStadium("Wankhede Stadium Mumbai", 35, true);
-            addStadium("Eden Gardens Kolkata", 72, true);
-            setPriority(state.trackedIds[0]);
-            
-            setInterval(simulateEngine, 2500);
-            
-            // Fast typing effect loop for Insights (Runs at 30ms instead of 2.5s)
-            typingInterval = setInterval(() => {
-                if(state.tab === 'insights' && state.priorityId) {
-                    const s = STADIUMS[state.priorityId];
-                    if(s && s.aiReportRaw && s.aiReportDisplayed.length < s.aiReportRaw.length) {
-                        s.aiReportDisplayed += s.aiReportRaw.substr(state.terminalIndex, 4);
-                        state.terminalIndex += 4;
-                        const termEl = document.getElementById('ai-terminal');
-                        if(termEl) termEl.innerHTML = s.aiReportDisplayed.replace(/\n/g, '<br/>') + '<span class="terminal-cursor"></span>';
-                    }
-                }
-            }, 30);
+        // Firebase Config (Mocked)
+        const firebaseConfig = { apiKey: "AIza...", authDomain: "crowdsense.firebaseapp.com", databaseURL: "https://crowdsense.firebaseio.com", projectId: "crowdsense" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const rtdb = firebase.database();
 
-            renderNavbar();
-            switchTab('map');
+        function login() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider);
+        }
+
+        function init() {
+            auth.onAuthStateChanged(user => {
+                if(!user) {
+                    document.getElementById('app-container').innerHTML = `
+                        <div class="card h-full flex flex-col items-center justify-center text-center gap-6">
+                            <i data-lucide="shield-check" class="w-16 h-16 text-blue-500"></i>
+                            <div>
+                                <h2 class="text-2xl font-bold text-white mb-2">Tactical Auth Required</h2>
+                                <p class="text-gray-400 max-w-xs">Access to live tactical intelligence requires biometric verification via Google SSO.</p>
+                            </div>
+                            <button onclick="login()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full transition-all">Secure Login</button>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+                
+                addStadium("Wankhede Stadium Mumbai", 35, true);
+                addStadium("Eden Gardens Kolkata", 72, true);
+                setPriority(state.trackedIds[0]);
+                
+                setInterval(simulateEngine, 2500);
+                
+                // Fast typing effect loop for Insights
+                typingInterval = setInterval(() => {
+                    if(state.tab === 'insights' && state.priorityId) {
+                        const s = STADIUMS[state.priorityId];
+                        if(s && s.aiReportRaw && s.aiReportDisplayed.length < s.aiReportRaw.length) {
+                            s.aiReportDisplayed += s.aiReportRaw.substr(state.terminalIndex, 4);
+                            state.terminalIndex += 4;
+                            const termEl = document.getElementById('ai-terminal');
+                            if(termEl) termEl.innerHTML = s.aiReportDisplayed.replace(/\n/g, '<br/>') + '<span class="terminal-cursor"></span>';
+                        }
+                    }
+                }, 30);
+
+                renderNavbar();
+                switchTab('map');
+            });
         }
 
         function shuffle(array) {
@@ -346,6 +379,17 @@
                 threatEl.className = `font-bold ${maxChaos > 75 ? 'text-red-500' : (maxChaos > 40 ? 'text-yellow-400' : 'text-green-500')}`;
             }
 
+            // [Firebase RTDB] Real-time Sync
+            if(state.priorityId) {
+                const s = STADIUMS[state.priorityId];
+                rtdb.ref(`telemetry/${s.id}`).set({
+                    occupancy: s.occ,
+                    risk: s.mood,
+                    threat: threatEl ? threatEl.innerText : 'NOMINAL',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+
             renderSidebar();
             
             if(state.tab === 'overview' || state.tab === 'detector' || state.tab === 'alerts') {
@@ -486,7 +530,7 @@
                                 DRAG MAP TO ALIGN SATELLITE TO RETICLE
                             </div>
                             
-                            <iframe width="100%" height="100%" frameborder="0" src="https://maps.google.com/maps?q=${pStadium.query}&t=k&z=17&ie=UTF8&iwloc=&output=embed" style="filter: brightness(0.8) contrast(1.1);"></iframe>
+                            <div id="google-map" class="w-full h-full grayscale brightness-75"></div>
                             
                             <!-- HIGH-PRECISION TARGETING RETICLE -->
                             <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-white/10 rounded-full flex items-center justify-center pointer-events-none">
@@ -645,10 +689,32 @@
                                  </button>
                              </div>
                          </div>
-                     </div>`;
-            </div>`;
+                        </div>
+                    </div>`;
             }
             lucide.createIcons();
+
+            // [Google Maps JS SDK] Interactive Rendering
+            if(state.tab === 'map' && pStadium) {
+                setTimeout(() => {
+                    const mapDiv = document.getElementById('google-map');
+                    if(mapDiv) {
+                        const map = new google.maps.Map(mapDiv, {
+                            center: { lat: 18.9389, lng: 72.8258 },
+                            zoom: 17,
+                            mapTypeId: 'satellite',
+                            disableDefaultUI: true
+                        });
+                        const directionsService = new google.maps.DirectionsService();
+                        const directionsRenderer = new google.maps.DirectionsRenderer({ map });
+                        directionsService.route({
+                            origin: '18.9389, 72.8258', // Gate A
+                            destination: '18.9379, 72.8248', // Safe Zone
+                            travelMode: 'WALKING'
+                        }, (res, status) => { if(status === 'OK') directionsRenderer.setDirections(res); });
+                    }
+                }, 100);
+            }
         }
 
         function updateMapMarkers() {

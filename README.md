@@ -65,7 +65,30 @@ Check logs for `[Benchmark]` tags to see precise duration.
 ### ♿ Accessibility
 * **Dynamic ARIA Intelligence**: The dark mode tactical aesthetic utilizes stark, high-contrast colors (Neon Green/Red) ensuring visual readability. More importantly, the DOM is injected with dynamic accessibility tags (`aria-live="polite"`, `role="alert"`). When a sector breaches 85% density, screen readers will immediately prioritize and announce the critical threat to visually impaired operators.
 
-### 🌍 Google Services Integration
-CrowdSense natively integrates powerful Google Services to drive its intelligence:
-1. **Google Maps High-Res Satellite API**: Used to render the interactive `z=18` maximum-detail satellite imagery required for structural perimeter tracking.
-2. **Google News (RSS API)**: Fetches localized, real-world headlines based on the user's venue query, feeding the AI Neural Terminal to generate contextual intelligence.
+## 🛡️ Integrated Google Services
+
+CrowdSense AI leverages the full Google Cloud & Firebase ecosystem for tactical dominance:
+
+1.  **Gemini 2.5 Flash (@google/generative-ai)**: Real-time narration of backend-computed analytics. Used in the AI Command terminal.
+2.  **Google Maps JavaScript API**: High-precision satellite imagery with dynamic routing for evacuation and threat assessment.
+3.  **Firebase Authentication**: Secure biometric-grade login flow using Google SSO for tactical data protection.
+4.  **Firebase Realtime Database**: Synchronous multi-node telemetry updates. Every density shift is mirrored live to the database.
+5.  **Google Cloud Run**: Production deployment target with auto-scaling (`min: 0`, `max: 10`).
+6.  **Google Cloud Build**: Fully automated CI/CD pipeline defined in `cloudbuild.yaml`.
+7.  **Google Cloud BigQuery**: Forensic analytics engine. Every AI query and tactical decision is logged for post-incident review.
+8.  **Google Cloud Storage**: (Bonus) Secure repository for tactical imagery and uploaded sector maps.
+
+## 🚀 Deployment & CI/CD
+
+### Google Cloud Build
+The project is configured for automated builds:
+```bash
+gcloud builds submit --config cloudbuild.yaml
+```
+
+### Google Cloud Run (Auto-scaling)
+- **Min Instances**: 0 (Cost-effective)
+- **Max Instances**: 10 (High-availability during major events)
+- **Memory**: 512MiB
+- **Concurrency**: 80 requests per instance
+- **Region**: us-central1

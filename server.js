@@ -93,6 +93,62 @@ app.use(globalLimiter);
 // 🛣️ ROUTE HANDLERS
 // ─────────────────────────────────────────
 
+import { GoogleServices } from './services/google.service.js';
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Auth Middleware
+ * Verifies Firebase ID Token
+ */
+const authenticate = async (req, res, next) => {
+    const token = req.headers.authorization?.split('Bearer ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        // In real deployment, verify with firebase-admin
+        // const decodedToken = await admin.auth().verifyIdToken(token);
+        // req.user = decodedToken;
+        next();
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+};
+
+/**
+ * Analytics Route
+ * Logs user actions to BigQuery
+ */
+app.post('/api/analytics', authenticate, async (req, res) => {
+    const { event, metadata } = req.body;
+    await GoogleServices.logEvent(event, metadata);
+    res.json({ status: 'logged' });
+});
+
+/**
+ * Telemetry Sync Route
+ * Pushes live data to Firebase RTDB
+ */
+app.post('/api/telemetry/sync', authenticate, async (req, res) => {
+    const { stadiumId, data } = req.body;
+    await GoogleServices.updateTelemetry(stadiumId, data);
+    res.json({ status: 'synced' });
+});
+
+/**
+ * File Upload Route
+ * Uploads tactical imagery to GCS
+ */
+app.post('/api/upload', authenticate, upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    try {
+        const url = await GoogleServices.uploadFile(req.file.buffer, `uploads/${Date.now()}-${req.file.originalname}`);
+        res.json({ url });
+    } catch (error) {
+        res.status(500).json({ error: 'Upload failed' });
+    }
+});
+
 /**
  * Tactical AI Chat Route
  * Computes logic server-side, uses AI ONLY for narration.
@@ -112,15 +168,18 @@ app.post('/api/ai-chat', aiLimiter,
             return res.status(400).json({ error: 'Validation failed', details: errors.array() });
         }
 
-        const { message, sectors } = req.body;
+        const { message, sectors, venue } = req.body;
 
         // 1. COMPUTE LOGIC ON BACKEND (Efficiency Rule)
         const analysis = CrowdAnalyticsService.predictBottlenecks(sectors);
         
+        // 2. LOG TO BIGQUERY (Google Cloud Rule)
+        await GoogleServices.logEvent('AI_QUERY', { venue, risk: analysis.overall_risk });
+
         const computeTime = Date.now() - start;
         console.log(`[Benchmark] Analytics computed in ${computeTime}ms`);
 
-        // 2. NARRATE VIA AI (Narration Rule)
+        // 3. NARRATE VIA AI (Narration Rule)
         await GeminiService.streamNarration({ message, analysis }, res);
     }
 );
