@@ -1,10 +1,3 @@
-/**
- * CrowdSense AI — Secure Backend Server
- * =======================================
- * Production-grade Express server powering the Gemini 2.5 Flash AI intelligence layer.
- * Implements: Helmet CSP, Rate Limiting, Input Validation, CORS, SSE Streaming.
- */
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,10 +7,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Engine Modules
-import { streamTacticalAIResponse } from './engine/aiEngine.js';
-import { calculateBottlenecks, findSafestEvacuationRoute } from './engine/crowdEngine.js';
-import { logAnalyticsEvent } from './engine/analyticsEngine.js';
+// Import Services
+import { GeminiService } from './services/gemini.service.js';
+import { CrowdAnalyticsService } from './services/crowd.service.js';
 
 dotenv.config();
 
@@ -26,94 +18,58 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Trust the Google Cloud Run proxy so express-rate-limit works properly
+// ─────────────────────────────────────────
+// 🛡️ CONFIGURATION & MIDDLEWARE
+// ─────────────────────────────────────────
+
 app.set('trust proxy', 1);
 
-// ─────────────────────────────────────────
-// 🛡️ SECURITY LAYER — Helmet CSP
-// ─────────────────────────────────────────
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: [
-                "'self'",
-                "'unsafe-inline'", // Required for Tailwind CDN
-                "https://cdn.tailwindcss.com",
-                "https://unpkg.com",
-            ],
-            scriptSrcAttr: ["'unsafe-inline'"], // Fixes blocked onclick events
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://unpkg.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["*", "data:"], // Fixes blocked Pixabay background
-            connectSrc: [
-                "'self'",
-                "https://api.rss2json.com",
-                "https://*.googleapis.com",
-                "https://*.firebaseio.com",
-                "https://*.firebaseapp.com"
-            ],
+            imgSrc: ["*", "data:"],
+            connectSrc: ["'self'", "https://api.rss2json.com", "https://*.googleapis.com"],
             frameSrc: ["https://www.google.com", "https://maps.google.com"],
             objectSrc: ["'none'"],
-            baseUri: ["'self'"],
-            formAction: ["'self'"],
             upgradeInsecureRequests: [],
         },
     },
-    crossOriginEmbedderPolicy: false, // Required for Google Maps embed
+    crossOriginEmbedderPolicy: false,
 }));
 
-// ─────────────────────────────────────────
-// 🌐 CORS — Restricted to known origins
-// ─────────────────────────────────────────
-const allowedOrigins = [
-    'http://localhost:3001',
-    'http://localhost:8080',
-    'https://crowdsense-87844475027.us-central1.run.app',
-];
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error(`CORS Policy: Origin '${origin}' is not permitted.`));
-        }
-    },
-    methods: ['GET', 'POST'],
-}));
+app.use(cors());
+app.use(express.json({ limit: '512kb' }));
 
 // ─────────────────────────────────────────
-// ⚡ RATE LIMITING — Prevent API abuse
+// ⚡ RATE LIMITERS
 // ─────────────────────────────────────────
+
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    validate: { xForwardedForHeader: false }, // Cloud Run sets this header; disable validation
-    message: { error: 'Too many requests. Please wait before retrying.' },
+    validate: { xForwardedForHeader: false },
 });
 
 const aiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 20,
-    validate: { xForwardedForHeader: false }, // Cloud Run sets this header; disable validation
-    message: { error: 'AI query rate limit reached. Please wait.' },
+    validate: { xForwardedForHeader: false },
 });
 
 app.use(globalLimiter);
-app.use(express.json({ limit: '512kb' })); // Reject oversized payloads
 
 // ─────────────────────────────────────────
-// 🤖 GEMINI AI ENGINE
+// 🛣️ ROUTE HANDLERS
 // ─────────────────────────────────────────
-// AI generation is encapsulated in engine/aiEngine.js to maintain thin controllers
 
 /**
- * POST /api/ai-chat
- * Accepts a venue context and user message, streams Gemini 2.5 response via SSE.
- * 
- * Body: { message: string, venue: string, density: number, mood: string }
+ * Tactical AI Chat Route
+ * Handles SSE streaming for real-time security assessments.
  */
 app.post('/api/ai-chat', aiLimiter,
     [
@@ -125,42 +81,17 @@ app.post('/api/ai-chat', aiLimiter,
     async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({ error: 'Invalid input.', details: errors.array() });
+            return res.status(400).json({ error: 'Validation failed', details: errors.array() });
         }
 
-        const { message, venue, density, mood } = req.body;
-
-        // Set SSE headers for real-time streaming
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.flushHeaders();
-
-        // Google Services Requirement: Log to BigQuery
-        logAnalyticsEvent('ai_chat_query', { venue, density, mood });
-
-        try {
-            // Engine abstraction: Call centralized AI engine
-            const stream = await streamTacticalAIResponse({ message, venue, density, mood });
-            for await (const chunk of stream) {
-                const text = chunk.text();
-                if (text) {
-                    res.write(`data: ${JSON.stringify({ text })}\n\n`);
-                }
-            }
-            res.write(`data: [DONE]\n\n`);
-            res.end();
-        } catch (error) {
-            console.error('[Gemini Error]', error.message);
-            res.write(`data: ${JSON.stringify({ error: 'AI engine temporarily unavailable.' })}\n\n`);
-            res.end();
-        }
+        // Delegate all logic to GeminiService
+        await GeminiService.streamTacticalAssessment(req.body, res);
     }
 );
 
 /**
- * POST /api/predict-bottleneck
- * Pure server-side chaos prediction with validated inputs.
+ * Bottleneck Prediction Route
+ * Analyzes sector data to identify high-risk areas.
  */
 app.post('/api/predict-bottleneck',
     [
@@ -171,46 +102,31 @@ app.post('/api/predict-bottleneck',
     (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({ error: 'Invalid sector data.' });
+            return res.status(400).json({ error: 'Invalid sector data' });
         }
 
-        const { sectors } = req.body;
-        
-        // Use mathematical models in the engine layer
-        const bottlenecks = calculateBottlenecks(sectors);
-        const safestSector = findSafestEvacuationRoute(sectors);
-
-        // Google Services Requirement: Log to BigQuery
-        logAnalyticsEvent('bottleneck_prediction', { 
-            sector_count: sectors.length,
-            bottleneck_count: bottlenecks.length
-        });
-
-        res.json({
-            bottlenecks,
-            evacuation_route: safestSector ? safestSector.name : 'Unknown',
-            overall_risk: bottlenecks.length > 0 ? 'HIGH' : 'NOMINAL',
-        });
+        // Delegate algorithm to CrowdAnalyticsService
+        const report = CrowdAnalyticsService.predictBottlenecks(req.body.sectors);
+        res.json(report);
     }
 );
 
 // ─────────────────────────────────────────
-// 🏠 Serve static frontend files
+// 🏠 STATIC ASSETS & FALLBACK
 // ─────────────────────────────────────────
-app.use(express.static(path.join(__dirname)));
 
-// SPA Fallback
+app.use(express.static(path.join(__dirname)));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ─────────────────────────────────────────
-// 🚀 Launch Server
+// 🚀 SERVER INITIATION
 // ─────────────────────────────────────────
+
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🛡️  CrowdSense AI Backend Running`);
-    console.log(`📡 Listening on: http://localhost:${PORT}`);
-    console.log(`🤖 Gemini 2.5 Flash: ${process.env.GEMINI_API_KEY ? '✅ Connected' : '❌ KEY MISSING'}\n`);
+    console.log(`\n🛡️  CrowdSense Tactical Intelligence Layer Online`);
+    console.log(`📡 Deployment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🤖 Engine: Gemini 2.5 Flash\n`);
 });
 
-export default app;
