@@ -86,15 +86,33 @@ function init() {
                     <button onclick="login()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full transition-all">Secure Login</button>
                 </div>
             `;
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
       return;
     }
 
-    addStadium('Wankhede Stadium Mumbai', 35, true);
-    addStadium('Eden Gardens Kolkata', 72, true);
-    setPriority(state.trackedIds[0]);
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
 
-    setInterval(simulateEngine, 2500);
+    try {
+      addStadium('Wankhede Stadium Mumbai', 35, true);
+      addStadium('Eden Gardens Kolkata', 72, true);
+      if (state.trackedIds.length > 0) {
+        setPriority(state.trackedIds[0]);
+      }
+    } catch (e) {
+      console.error('Initial Stadium Add Failed', e);
+    }
+
+    setInterval(() => {
+      try {
+        simulateEngine();
+      } catch (e) {
+        console.error('Sim Error', e);
+      }
+    }, 2500);
 
     // Fast typing effect loop for Insights
     typingInterval = setInterval(() => {
@@ -118,7 +136,7 @@ function init() {
     }, 30);
 
     renderNavbar();
-    switchTab('map');
+    switchTab('overview');
   });
 }
 
@@ -213,6 +231,9 @@ function addStadium(searchQuery, startOccupancy = 20, isInitialLoad = false) {
 
   if (!isInitialLoad) {
     triggerAlert(stadiumId, 'INFO', `Tracking initiated for ${displayName}. Satellite locked.`);
+  }
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
   }
   return stadiumId;
 }
@@ -660,7 +681,16 @@ function renderApp() {
     return;
   }
 
-  const priorityStadiumData = STADIUMS[state.priorityId];
+  const priorityStadiumData = state.priorityId ? STADIUMS[state.priorityId] : null;
+
+  if (
+    !priorityStadiumData &&
+    state.tab !== 'overview' &&
+    state.tab !== 'detector' &&
+    state.tab !== 'alerts'
+  ) {
+    state.tab = 'overview';
+  }
 
   if (state.tab === 'overview') {
     appContainer.innerHTML = `
@@ -911,7 +941,7 @@ function renderApp() {
   lucide.createIcons();
 
   // [Google Maps JS SDK] Interactive Rendering
-  if (state.tab === 'map' && priorityStadiumData) {
+  if (state.tab === 'map' && priorityStadiumData && typeof google !== 'undefined' && google.maps) {
     setTimeout(() => {
       const mapDiv = document.getElementById('google-map');
       if (mapDiv) {
