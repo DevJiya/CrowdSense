@@ -1,11 +1,11 @@
-import express from 'express';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { apiRoutes } from './routes/index.js';
-import { SecurityMiddleware } from './middleware/index.js';
 
-dotenv.config();
+import 'dotenv/config';
+import express from 'express';
+
+import { SecurityMiddleware } from './middleware/index.js';
+import { apiRoutes } from './routes/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +25,7 @@ app.use('/api', apiRoutes);
 
 // ─── SPA FALLBACK ────────────────────────────────────────────────────
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 export default app;

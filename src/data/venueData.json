@@ -44,11 +44,28 @@
   "user_reports": [
     { "type": "verified", "count": 142, "description": "Accurate crowd updates", "weight": 1.0 },
     { "type": "uncertain", "count": 28, "description": "Exaggerated wait times", "weight": 0.4 },
-    { "type": "suppressed", "count": 12, "description": "Panic-inducing/False claims", "weight": -0.8 }
+    {
+      "type": "suppressed",
+      "count": 12,
+      "description": "Panic-inducing/False claims",
+      "weight": -0.8
+    }
   ],
   "incident_log": [
-    { "time": "18:22", "severity": "medium", "type": "Crowd Surge", "location": "Gate 1", "status": "Resolved" },
-    { "time": "19:45", "severity": "low", "type": "Verbal Dispute", "location": "Food Court", "status": "Handled" }
+    {
+      "time": "18:22",
+      "severity": "medium",
+      "type": "Crowd Surge",
+      "location": "Gate 1",
+      "status": "Resolved"
+    },
+    {
+      "time": "19:45",
+      "severity": "low",
+      "type": "Verbal Dispute",
+      "location": "Food Court",
+      "status": "Handled"
+    }
   ],
   "safety_signals": {
     "movement_stability": 72,
