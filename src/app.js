@@ -59,7 +59,7 @@ app.use('/api', apiRoutes);
  * @param {Object} httpRequest - Express request object.
  * @param {Object} httpResponse - Express response object.
  */
-app.get('*', (httpRequest, httpResponse) => {
+app.get(/.*/, (httpRequest, httpResponse) => {
   httpResponse.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 

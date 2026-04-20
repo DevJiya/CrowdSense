@@ -4,6 +4,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { logger } from '../../../src/config/logger.js';
 import { errorHandler } from '../../../src/errors/errorHandler.middleware.js';
 import { AppError } from '../../../src/errors/AppError.js';
 import { ErrorCodes } from '../../../src/errors/ErrorCodes.js';
@@ -22,8 +23,10 @@ describe('ErrorHandler Middleware', () => {
       json: jest.fn().mockReturnThis(),
     };
     mockNext = jest.fn();
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'debug').mockImplementation(() => {});
   });
 
   afterEach(() => {
