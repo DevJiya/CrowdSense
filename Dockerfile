@@ -1,15 +1,14 @@
 # STAGE 1: Build
-FROM node:18-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --omit=dev --ignore-scripts --legacy-peer-deps
 COPY . .
 
 # STAGE 2: Production
-FROM node:18-slim
+FROM node:22-slim
 WORKDIR /app
 COPY --from=builder /app ./
-RUN npm prune --production
 
 # Security: Non-root user
 USER node
@@ -17,4 +16,4 @@ USER node
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["node", "server.js"]
+CMD ["node", "src/index.js"]
