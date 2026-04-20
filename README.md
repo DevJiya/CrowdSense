@@ -20,6 +20,28 @@ The UI was designed using "Dark-Glass Tactical" aesthetics, mimicking military/s
 * **Interactive Satellite Targeting**: Using the **Google Maps API**, users can search for any global venue. The UI features an unlocked satellite feed, allowing the user to click and drag the map to perfectly align the stadium under our Tactical Crosshairs.
 * **Smart Radar Nodes**: Once aligned, 4 precise sector nodes lock onto the perimeter of the venue. These nodes run independently of the map iframe, updating their density metrics efficiently without forcing map reloads.
 * **AI Neural Insights**: The system fetches live RSS feeds via **Google News**. It parses headlines related to the active venue and runs a simulated neural synthesis, typing out a real-time risk assessment and adjusting the global threat level dynamically.
+## 🚀 Deployment & Efficiency
+
+### Cloud Run Auto-scaling
+The production environment is optimized for cost and performance:
+- **Min Instances**: 0 (Scale to zero when idle)
+- **Max Instances**: 10 (Controlled scaling for high traffic)
+- **Concurrency**: 80 requests per instance
+
+### Compute & Performance
+- **Zero-AI Logic**: All tactical calculations (Dijkstra, risk scoring) run in the Node.js backend.
+- **AI for Narration**: Gemini 2.5 Flash is used strictly for phrasing and communicating pre-computed data.
+- **Benchmark Goal**: Non-AI API response times < 500ms.
+
+### Benchmarking
+Run the built-in benchmark to verify performance:
+```bash
+# Example call to verify < 500ms response
+curl -X POST https://your-service-url/api/predict-bottleneck \
+     -H "Content-Type: application/json" \
+     -d '{"sectors": [{"name": "Gate A", "density": 80}]}'
+```
+Check logs for `[Benchmark]` tags to see precise duration.
 * **Evacuation Routing**: Based on the lowest density sectors, the algorithm calculates and displays the safest primary evacuation route in the Insights tab.
 
 ---

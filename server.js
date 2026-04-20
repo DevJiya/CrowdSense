@@ -95,23 +95,33 @@ app.use(globalLimiter);
 
 /**
  * Tactical AI Chat Route
- * Handles SSE streaming for real-time security assessments.
+ * Computes logic server-side, uses AI ONLY for narration.
  */
 app.post('/api/ai-chat', aiLimiter,
     [
         body('message').isString().trim().isLength({ min: 1, max: 500 }).escape(),
         body('venue').isString().trim().isLength({ min: 1, max: 100 }).escape(),
-        body('density').isFloat({ min: 0, max: 100 }),
-        body('mood').isIn(['CALM', 'TENSE', 'CHAOS']),
+        body('sectors').isArray({ min: 1 }),
+        body('sectors.*.name').isString(),
+        body('sectors.*.density').isFloat(),
     ],
     async (req, res) => {
+        const start = Date.now();
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ error: 'Validation failed', details: errors.array() });
         }
 
-        // Delegate all logic to GeminiService
-        await GeminiService.streamTacticalAssessment(req.body, res);
+        const { message, sectors } = req.body;
+
+        // 1. COMPUTE LOGIC ON BACKEND (Efficiency Rule)
+        const analysis = CrowdAnalyticsService.predictBottlenecks(sectors);
+        
+        const computeTime = Date.now() - start;
+        console.log(`[Benchmark] Analytics computed in ${computeTime}ms`);
+
+        // 2. NARRATE VIA AI (Narration Rule)
+        await GeminiService.streamNarration({ message, analysis }, res);
     }
 );
 
@@ -126,6 +136,7 @@ app.post('/api/predict-bottleneck',
         body('sectors.*.density').isFloat({ min: 0, max: 100 }),
     ],
     (req, res) => {
+        const start = Date.now();
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ error: 'Invalid sector data' });
@@ -133,6 +144,10 @@ app.post('/api/predict-bottleneck',
 
         // Delegate algorithm to CrowdAnalyticsService
         const report = CrowdAnalyticsService.predictBottlenecks(req.body.sectors);
+        
+        const duration = Date.now() - start;
+        console.log(`[Benchmark] Bottleneck prediction completed in ${duration}ms`);
+        
         res.json(report);
     }
 );

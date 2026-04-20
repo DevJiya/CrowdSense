@@ -1,31 +1,33 @@
-# ─────────────────────────────────────────────────────────────
-# CrowdSense AI — Production Dockerfile
-# Multi-stage build: Install deps cleanly then run server
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────
+# STAGE 1: BUILD
+# ─────────────────────────────────────────
+FROM node:18-slim AS builder
 
-FROM node:22-alpine AS builder
-WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
-
-# ─────────────────────────────────────────────────────────────
-# Final stage: minimal image
-# ─────────────────────────────────────────────────────────────
-FROM node:22-alpine
 WORKDIR /app
 
-# Copy dependencies from builder
-COPY --from=builder /app/node_modules ./node_modules
+# Install dependencies (including devDeps for build if needed)
+COPY package*.json ./
+RUN npm install
 
-# Copy application source
+# Copy source code
 COPY . .
 
-# Expose the port Cloud Run maps to
+# ─────────────────────────────────────────
+# STAGE 2: PRODUCTION
+# ─────────────────────────────────────────
+FROM node:18-slim
+
+WORKDIR /app
+
+# Copy production artifacts from builder
+COPY --from=builder /app /app
+
+# Prune dev dependencies to keep image slim
+RUN npm prune --production
+
+# Security: Run as non-privileged user
+USER node
+
 EXPOSE 3001
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD wget -qO- http://localhost:3001/ || exit 1
-
-# Launch the secure Express server
 CMD ["node", "server.js"]
