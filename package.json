@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node tests/engine.test.js && node tests/server.test.js",
-    "test:engine": "node tests/engine.test.js",
-    "test:server": "node tests/server.test.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
@@ -19,5 +19,9 @@
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.3.2",
     "helmet": "^8.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   }
 }
