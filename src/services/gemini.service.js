@@ -6,9 +6,11 @@
  * @requires dotenv
  */
 
-/* eslint-disable no-console */
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google-cloud/generative-ai';
 import dotenv from 'dotenv';
+
+import { AppError } from '../errors/AppError.js';
+import { ErrorCodes } from '../errors/ErrorCodes.js';
 
 dotenv.config();
 
@@ -24,11 +26,19 @@ export const GeminiService = {
    * @param {string} [narrationPayload.language='English'] - The language for the AI response.
    * @param {Object} httpResponse - Express response object for streaming.
    * @returns {Promise<void>} Resolves when the stream is completed or closed.
-   * @throws {Error} If the Gemini API call fails or the stream is interrupted.
-   * @example
-   * await GeminiService.streamNarration({ message: "Status check", analysis: bottleneckData }, res);
+   * @throws {AppError} If the Gemini API call fails or the stream is interrupted.
    */
   async streamNarration({ message, analysis, language = 'English' }, httpResponse) {
+    if (!process.env.GEMINI_API_KEY || process.env.MOCK_MODE === 'true') {
+      httpResponse.setHeader('Content-Type', 'text/event-stream');
+      httpResponse.write(
+        `data: ${JSON.stringify({ text: '[MOCK AI] Tactical assessment: Crowd density is nominal. All gates operational.' })}\n\n`,
+      );
+      httpResponse.write('data: [DONE]\n\n');
+      httpResponse.end();
+      return;
+    }
+
     const aiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const tacticalPrompt = `
@@ -63,9 +73,16 @@ export const GeminiService = {
       httpResponse.write('data: [DONE]\n\n');
       httpResponse.end();
     } catch (error) {
-      console.error('[Gemini Error]', error.message);
-      httpResponse.write(`data: ${JSON.stringify({ error: 'AI narration failed' })}\n\n`);
-      httpResponse.end();
+      throw new AppError(
+        'Gemini AI narration failed',
+        500,
+        ErrorCodes.EXTERNAL_SERVICE_FAILURE,
+        true,
+        {
+          service: 'Gemini',
+          originalError: error.message,
+        },
+      );
     }
   },
 };

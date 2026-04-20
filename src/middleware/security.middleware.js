@@ -8,7 +8,6 @@
  */
 
 import rateLimit from 'express-rate-limit';
-import { body, validationResult } from 'express-validator';
 import helmet from 'helmet';
 
 /**
@@ -37,35 +36,4 @@ export const SecurityMiddleware = {
     max: 1,
     message: { error: 'Tactical AI limit reached. Wait 2s.' },
   }),
-
-  /**
-   * Generic Validation Handler that processes express-validator results.
-   * @param {Object} httpRequest - Express request object.
-   * @param {Object} httpResponse - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Object|void}
-   */
-  validate(httpRequest, httpResponse, next) {
-    const validationErrors = validationResult(httpRequest);
-    if (!validationErrors.isEmpty()) {
-      return httpResponse.status(400).json({
-        error: 'Validation failed',
-        details: validationErrors.array(),
-      });
-    }
-    return next();
-  },
 };
-
-/**
- * AI Chat Input Sanitization and Validation Schema.
- * Ensures the 'message', 'venue', and 'sectors' are present and correctly formatted.
- */
-export const AiChatValidator = [
-  body('message').isString().trim().isLength({ min: 1, max: 500 }).escape(),
-  body('venue').isString().trim().isLength({ min: 1, max: 100 }).escape(),
-  body('sectors').isArray({ min: 1 }),
-  body('sectors.*.name').isString(),
-  body('sectors.*.density').isFloat(),
-  SecurityMiddleware.validate,
-];

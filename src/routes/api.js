@@ -13,29 +13,28 @@ import express from 'express';
 import multer from 'multer';
 
 import { AiController } from '../controllers/index.js';
-import { AiChatValidator, SecurityMiddleware } from '../middleware/index.js';
+import { AppError } from '../errors/AppError.js';
+import { ErrorCodes } from '../errors/ErrorCodes.js';
+import { AuthMiddleware, SecurityMiddleware } from '../middleware/index.js';
 import { GoogleServices } from '../services/index.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiSchemas } from '../validators/api.validator.js';
+import { validate } from '../validators/validate.middleware.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-/**
- * Auth Middleware (Mocked for Demo).
- * @param {Object} httpRequest - Express request object.
- * @param {Object} httpResponse - Express response object.
- * @param {Function} next - Express next middleware function.
- */
-const authenticate = (httpRequest, httpResponse, next) => {
-  // In production, verify Firebase ID Token
-  next();
-};
 
 // ─── TACTICAL AI ENDPOINTS ──────────────────────────────────────────
 /**
  * POST /api/ai-chat
  * Handles tactical AI narrations with rate limiting and input validation.
  */
-router.post('/ai-chat', SecurityMiddleware.aiRateLimit, AiChatValidator, AiController.handleChat);
+router.post(
+  '/ai-chat',
+  SecurityMiddleware.aiRateLimit,
+  validate(ApiSchemas.aiChat),
+  AiController.handleChat,
+);
 
 // ─── ANALYTICS ENDPOINTS ─────────────────────────────────────────────
 /**
@@ -45,12 +44,13 @@ router.post('/ai-chat', SecurityMiddleware.aiRateLimit, AiChatValidator, AiContr
 router.post(
   '/analytics',
   SecurityMiddleware.globalRateLimit,
-  authenticate,
-  async (httpRequest, httpResponse) => {
+  AuthMiddleware.requireAuth,
+  validate(ApiSchemas.analytics),
+  asyncHandler(async (httpRequest, httpResponse) => {
     const { analyticsEventName, metadata } = httpRequest.body;
     await GoogleServices.logEvent(analyticsEventName, metadata);
     return httpResponse.json({ status: 'logged' });
-  },
+  }),
 );
 
 // ─── TELEMETRY ENDPOINTS ─────────────────────────────────────────────
@@ -61,12 +61,13 @@ router.post(
 router.post(
   '/telemetry/sync',
   SecurityMiddleware.globalRateLimit,
-  authenticate,
-  async (httpRequest, httpResponse) => {
+  AuthMiddleware.requireAuth,
+  validate(ApiSchemas.telemetry),
+  asyncHandler(async (httpRequest, httpResponse) => {
     const { stadiumId, telemetryPayload } = httpRequest.body;
     await GoogleServices.updateTelemetry(stadiumId, telemetryPayload);
     return httpResponse.json({ status: 'synced' });
-  },
+  }),
 );
 
 // ─── STORAGE ENDPOINTS ───────────────────────────────────────────────
@@ -77,22 +78,19 @@ router.post(
 router.post(
   '/upload',
   SecurityMiddleware.globalRateLimit,
-  authenticate,
+  AuthMiddleware.requireAuth,
   upload.single('file'),
-  async (httpRequest, httpResponse) => {
+  asyncHandler(async (httpRequest, httpResponse) => {
     if (!httpRequest.file) {
-      return httpResponse.status(400).json({ error: 'No file' });
+      throw new AppError('No file uploaded', 400, ErrorCodes.VALIDATION_ERROR);
     }
-    try {
-      const uploadedFileUrl = await GoogleServices.uploadFile(
-        httpRequest.file.buffer,
-        `uploads/${Date.now()}-${httpRequest.file.originalname}`,
-      );
-      return httpResponse.json({ url: uploadedFileUrl });
-    } catch {
-      return httpResponse.status(500).json({ error: 'Upload failed' });
-    }
-  },
+
+    const uploadedFileUrl = await GoogleServices.uploadFile(
+      httpRequest.file.buffer,
+      `uploads/${Date.now()}-${httpRequest.file.originalname}`,
+    );
+    return httpResponse.json({ url: uploadedFileUrl });
+  }),
 );
 
 export default router;

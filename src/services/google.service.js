@@ -15,10 +15,13 @@ import { Storage } from '@google-cloud/storage';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 
+import { AppError } from '../errors/AppError.js';
+import { ErrorCodes } from '../errors/ErrorCodes.js';
+
 dotenv.config();
 
 /** @const {boolean} MOCK_MODE - Indicates if the service is running without live cloud credentials. */
-const MOCK_MODE = !process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const MOCK_MODE = process.env.MOCK_MODE === 'true' || !process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
 if (MOCK_MODE) {
   console.warn('⚠️ [Google Cloud] Running in OFFLINE MOCK MODE. No live cloud writes will occur.');
@@ -71,7 +74,17 @@ export const GoogleServices = {
       await bigQueryClient.dataset(datasetId).table(tableId).insert([row]);
       console.log(`[BigQuery] Logged ${eventType}`);
     } catch (error) {
-      console.error('[BigQuery Error]', error.message);
+      throw new AppError(
+        'Failed to log event to BigQuery',
+        500,
+        ErrorCodes.EXTERNAL_SERVICE_FAILURE,
+        true,
+        {
+          service: 'BigQuery',
+          originalError: error.message,
+          eventType,
+        },
+      );
     }
   },
 
@@ -88,12 +101,25 @@ export const GoogleServices = {
       return;
     }
     try {
+      if (!stadiumId) {
+        throw new Error('stadiumId is required for telemetry update');
+      }
       await firebaseDatabase.ref(`telemetry/${stadiumId}`).set({
         ...telemetryPayload,
         last_updated: admin.database.ServerValue.TIMESTAMP,
       });
     } catch (error) {
-      console.error('[Firebase RTDB Error]', error.message);
+      throw new AppError(
+        'Failed to update Firebase telemetry',
+        500,
+        ErrorCodes.EXTERNAL_SERVICE_FAILURE,
+        true,
+        {
+          service: 'Firebase',
+          originalError: error.message,
+          stadiumId,
+        },
+      );
     }
   },
 
@@ -103,7 +129,7 @@ export const GoogleServices = {
    * @param {Buffer} fileBuffer - The raw file data to upload.
    * @param {string} destinationFilename - The target filename/path in the bucket.
    * @returns {Promise<string>} The public URL of the uploaded file.
-   * @throws {Error} If the storage bucket is not configured or upload fails.
+   * @throws {AppError} If the storage bucket is not configured or upload fails.
    */
   async uploadFile(fileBuffer, destinationFilename) {
     if (MOCK_MODE) {
@@ -115,12 +141,24 @@ export const GoogleServices = {
       if (!bucketName) {
         throw new Error('GCS_BUCKET_NAME environment variable is not set');
       }
+      if (!fileBuffer) {
+        throw new Error('fileBuffer is required for upload');
+      }
       const file = googleStorageClient.bucket(bucketName).file(destinationFilename);
       await file.save(fileBuffer);
       return `https://storage.googleapis.com/${bucketName}/${destinationFilename}`;
     } catch (error) {
-      console.error('[GCS Error]', error.message);
-      throw error;
+      throw new AppError(
+        'Failed to upload file to GCS',
+        500,
+        ErrorCodes.EXTERNAL_SERVICE_FAILURE,
+        true,
+        {
+          service: 'GCS',
+          originalError: error.message,
+          destinationFilename,
+        },
+      );
     }
   },
 };
