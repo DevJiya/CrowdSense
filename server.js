@@ -10,10 +10,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Engine Modules
+import { streamTacticalAIResponse } from './engine/aiEngine.js';
+import { calculateBottlenecks, findSafestEvacuationRoute } from './engine/crowdEngine.js';
+import { logAnalyticsEvent } from './engine/analyticsEngine.js';
 
 dotenv.config();
 
@@ -103,8 +107,7 @@ app.use(express.json({ limit: '512kb' })); // Reject oversized payloads
 // ─────────────────────────────────────────
 // 🤖 GEMINI AI ENGINE
 // ─────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+// AI generation is encapsulated in engine/aiEngine.js to maintain thin controllers
 
 /**
  * POST /api/ai-chat
@@ -133,20 +136,13 @@ app.post('/api/ai-chat', aiLimiter,
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
 
-        const contextualPrompt = `You are CrowdSense AI, an expert tactical intelligence analyst for stadium crowd safety. Give concise, actionable security assessments. Use CAPITALS for critical risks.
-
-VENUE CONTEXT:
-- Venue: ${venue}
-- Current Crowd Density: ${density}%
-- System Mood Alert: ${mood}
-
-OPERATOR QUERY: ${message}
-
-Provide a tactical assessment and direct response.`;
+        // Google Services Requirement: Log to BigQuery
+        logAnalyticsEvent('ai_chat_query', { venue, density, mood });
 
         try {
-            const stream = await model.generateContentStream(contextualPrompt);
-            for await (const chunk of stream.stream) {
+            // Engine abstraction: Call centralized AI engine
+            const stream = await streamTacticalAIResponse({ message, venue, density, mood });
+            for await (const chunk of stream) {
                 const text = chunk.text();
                 if (text) {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
@@ -179,23 +175,20 @@ app.post('/api/predict-bottleneck',
         }
 
         const { sectors } = req.body;
-        const bottlenecks = sectors
-            .filter(s => s.density > 65)
-            .sort((a, b) => b.density - a.density)
-            .map(s => ({
-                sector: s.name,
-                risk_score: Math.min(100, Math.round(s.density * 1.1)),
-                eta_to_critical: Math.max(1, Math.round((100 - s.density) / 5)),
-                recommendation: s.density > 85
-                    ? 'IMMEDIATE EVACUATION REQUIRED'
-                    : 'Monitor closely. Redirect foot traffic.',
-            }));
+        
+        // Use mathematical models in the engine layer
+        const bottlenecks = calculateBottlenecks(sectors);
+        const safestSector = findSafestEvacuationRoute(sectors);
 
-        const safestSector = sectors.reduce((a, b) => a.density < b.density ? a : b);
+        // Google Services Requirement: Log to BigQuery
+        logAnalyticsEvent('bottleneck_prediction', { 
+            sector_count: sectors.length,
+            bottleneck_count: bottlenecks.length
+        });
 
         res.json({
             bottlenecks,
-            evacuation_route: safestSector.name,
+            evacuation_route: safestSector ? safestSector.name : 'Unknown',
             overall_risk: bottlenecks.length > 0 ? 'HIGH' : 'NOMINAL',
         });
     }

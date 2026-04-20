@@ -1,93 +1,79 @@
 // ══════════════════════════════════════════════════════
-// AUTH.JS — Local Storage "Backend" (No Firebase)
+// AUTH.JS — Firebase Authentication & Realtime Database
 // ══════════════════════════════════════════════════════
 
 // ── SIGN UP ──
-async function signUp(username, password) {
+async function signUp(email, password) {
   showAuthLoading(true, 'signup');
-  
-  // Simulate network delay
-  setTimeout(() => {
-    let users = JSON.parse(localStorage.getItem('cs_users') || '[]');
+  try {
+    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
     
-    // Check if user exists
-    if (users.find(u => u.username === username)) {
-      showAuthError('signup', 'Username already taken.');
-      showAuthLoading(false, 'signup');
-      return;
-    }
-
-    const newUser = {
-      uid: 'user_' + Date.now(),
-      username: username,
-      password: password,
+    // Google Services: Write to Realtime Database
+    await rtdb.ref('users/' + user.uid).set({
+      username: email.split('@')[0],
       trustScore: 500,
       tier: 'Neutral',
       createdAt: new Date().toISOString()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('cs_users', JSON.stringify(users));
-    localStorage.setItem('cs_current_user', JSON.stringify(newUser));
+    });
 
     window.location.href = 'index.html';
-  }, 800);
+  } catch (error) {
+    showAuthError('signup', error.message);
+    showAuthLoading(false, 'signup');
+  }
 }
 
 // ── LOGIN ──
-async function login(username, password) {
+async function login(email, password) {
   showAuthLoading(true, 'login');
-
-  setTimeout(() => {
-    let users = JSON.parse(localStorage.getItem('cs_users') || '[]');
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-      localStorage.setItem('cs_current_user', JSON.stringify(user));
-      window.location.href = 'index.html';
-    } else {
-      showAuthError('login', 'Invalid username or password.');
-      showAuthLoading(false, 'login');
-    }
-  }, 800);
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    window.location.href = 'index.html';
+  } catch (error) {
+    showAuthError('login', 'Invalid credentials.');
+    showAuthLoading(false, 'login');
+  }
 }
 
 // ── LOGOUT ──
 function logout() {
-  localStorage.removeItem('cs_current_user');
-  window.location.href = 'login.html';
+  auth.signOut().then(() => {
+    window.location.href = 'login.html';
+  });
 }
 
 // ── AUTH GUARD ──
 function requireAuth(onUser) {
-  const user = JSON.parse(localStorage.getItem('cs_current_user'));
-  if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    onUser(user, user);
-  }
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      // Fetch user profile from RTDB
+      rtdb.ref('users/' + user.uid).once('value').then((snapshot) => {
+        const profile = snapshot.val() || { trustScore: 500, username: user.email };
+        onUser(user, profile);
+      });
+    } else {
+      window.location.href = 'login.html';
+    }
+  });
 }
 
-// ── SUBMIT CROWD REPORT (Local Storage) ──
+// ── SUBMIT CROWD REPORT (Firebase RTDB) ──
 async function submitCrowdReport(uid, userName, type, location, detail) {
   const result = analyzeReport(detail);
-  const reports = JSON.parse(localStorage.getItem('cs_reports') || '[]');
   
-  const newReport = {
-    id: Date.now(),
+  const newReportRef = rtdb.ref('reports').push();
+  await newReportRef.set({
     uid, userName, type, location, detail,
     verdict: result.verdict,
     timestamp: new Date().toISOString()
-  };
-
-  reports.push(newReport);
-  localStorage.setItem('cs_reports', JSON.stringify(reports));
+  });
 
   if (result.verdict === 'verified') {
-    updateLocalScore(15);
+    await updateLocalScore(uid, 15);
     return { ok: true, msg: '✓ Verified. +15 TruthScore added.', score: 15 };
   } else if (result.verdict === 'suppressed') {
-    updateLocalScore(-20);
+    await updateLocalScore(uid, -20);
     return { ok: false, msg: "⊘ Flagged — couldn't be verified. −20 TruthScore.", score: -20 };
   }
   return { ok: true, msg: '◎ Report queued for verification. +2 TruthScore.', score: 2 };
@@ -102,19 +88,14 @@ function analyzeReport(detail) {
   return { verdict: 'verified' };
 }
 
-function updateLocalScore(delta) {
-  const user = JSON.parse(localStorage.getItem('cs_current_user'));
+async function updateLocalScore(uid, delta) {
+  const userRef = rtdb.ref('users/' + uid);
+  const snapshot = await userRef.once('value');
+  const user = snapshot.val();
   if (user) {
-    user.trustScore += delta;
-    localStorage.setItem('cs_current_user', JSON.stringify(user));
-    
-    // Sync back to users list
-    let users = JSON.parse(localStorage.getItem('cs_users') || '[]');
-    let idx = users.findIndex(u => u.uid === user.uid);
-    if (idx !== -1) {
-      users[idx].trustScore = user.trustScore;
-      localStorage.setItem('cs_users', JSON.stringify(users));
-    }
+    await userRef.update({
+      trustScore: user.trustScore + delta
+    });
   }
 }
 

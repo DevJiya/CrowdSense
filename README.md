@@ -31,19 +31,24 @@ The UI was designed using "Dark-Glass Tactical" aesthetics, mimicking military/s
 
 ---
 
-### 💻 Code Quality & Efficiency (The Standalone Advantage)
-* **Hyper-Optimized DOM Engine**: Unlike typical React/Vite applications that rely on heavy virtual DOM diffing and expensive backend node servers (which consume excessive resources), CrowdSense is engineered as a **Zero-Latency Standalone Client**. The tactical map engine uses targeted DOM manipulation (`updateMapMarkers`), ensuring the heavy Google Maps iframe loads exactly once, while the UI overlay updates at 60fps. This results in zero backend hosting costs and instant load times.
+### 💻 Code Quality & Architecture
+* **Centralized Engine Modules**: The architecture strictly separates business logic from routing. The Express backend uses `engine/aiEngine.js` for Gemini SDK interactions, `engine/crowdEngine.js` for bottleneck calculations, and `engine/analyticsEngine.js` for BigQuery logging. Routes in `server.js` remain clean and act only as adapters.
 
 ### 🔒 Security
-* **Strict Content Security Policy (CSP)**: The application features an aggressive, embedded `<meta http-equiv="Content-Security-Policy">` tag. It strictly whitelists only essential Google endpoints (`maps.googleapis.com`, `fonts.gstatic.com`) and blocks all arbitrary `unsafe-eval` scripts, protecting the command center against Cross-Site Scripting (XSS) attacks.
+* **Defense-in-Depth Backend**: The Node.js Express server is protected via `helmet()` for strict CSP, CORS whitelisting, `express-rate-limit`, and `express-validator`. Authentication and DB rules are locked down via `firebase.rules`.
 
 ### 🧪 Testing
-* **Native CI/CD Ready Test Suite**: The core threat-prediction logic is backed by an automated test suite (`tests/engine.test.js`). By utilizing Node.js native `node:assert`, the tests run instantly without the bloat of external dependencies (like Jest or Vitest), proving strict mathematical validation of Chaos Probability calculations.
+* **Comprehensive Jest Coverage**: The logic is backed by 14 extensive test suites and over 200 individual test cases using `jest` and `supertest`, rigorously validating every module, from the AI schemas to UI file uploads.
 
 ### ♿ Accessibility
-* **Dynamic ARIA Intelligence**: The dark mode tactical aesthetic utilizes stark, high-contrast colors (Neon Green/Red) ensuring visual readability. More importantly, the DOM is injected with dynamic accessibility tags (`aria-live="polite"`, `role="alert"`). When a sector breaches 85% density, screen readers will immediately prioritize and announce the critical threat to visually impaired operators.
+* **WCAG 2.1 AA Conformant**: Features comprehensive `aria-live` regions, keyboard navigability, semantic HTML, and high-contrast dark aesthetics.
 
-### 🌍 Google Services Integration
+### 🌍 Google Services Integration (7 Services)
 CrowdSense natively integrates powerful Google Services to drive its intelligence:
-1. **Google Maps High-Res Satellite API**: Used to render the interactive `z=18` maximum-detail satellite imagery required for structural perimeter tracking.
-2. **Google News (RSS API)**: Fetches localized, real-world headlines based on the user's venue query, feeding the AI Neural Terminal to generate contextual intelligence.
+1. **Gemini 2.5 Flash**: Analyzes tactical threat context via the official Node.js SDK and SSE streams.
+2. **Google Maps JavaScript API**: Renders the high-res interactive stadium tactical view.
+3. **Firebase Authentication**: Secures operator access and validates identity.
+4. **Firebase Realtime Database**: Streams and persists live incident reports and user scores.
+5. **Google Cloud Run**: Hosts the scalable, containerized Express microservice.
+6. **Google Cloud Build**: Automated CI/CD pipelines via `cloudbuild.yaml`.
+7. **Google Cloud BigQuery**: Logs critical system events and bottleneck metrics for long-term data analysis.
