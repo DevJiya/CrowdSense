@@ -1,3 +1,10 @@
+/**
+ * @module ServerEntry
+ * @description Entry point for the CrowdSense AI server. Orchestrates the
+ * startup of the Express application on the designated port.
+ * @requires app
+ */
+
 /* eslint-disable no-console */
 import app from './app.js';
 

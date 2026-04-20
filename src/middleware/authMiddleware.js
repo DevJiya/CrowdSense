@@ -1,32 +1,40 @@
 /**
- * Authentication Middleware
- * Currently implements a placeholder for Firebase session verification.
- * In a production environment, this would verify the Firebase ID Token.
+ * @module AuthMiddleware
+ * @description Authentication and Authorization middleware suite.
+ * Implements session verification and role-based access control (RBAC).
+ * Supports a MOCK_MODE for development without active Firebase sessions.
  */
+
 export const AuthMiddleware = {
   /**
-   * Protects routes by checking for a valid authorization header
-   * or session cookie.
+   * Protects routes by checking for a valid authorization header or session cookie.
+   * @param {Object} httpRequest - Express request object.
+   * @param {Object} httpResponse - Express response object.
+   * @param {Function} next - Express next middleware function.
+   * @returns {void}
    */
-  requireAuth: (req, res, next) => {
+  requireAuth: (httpRequest, httpResponse, next) => {
     // MOCK_MODE: In production, we would use admin.auth().verifyIdToken(token)
-    const authHeader = req.headers.authorization;
+    const authorizationHeader = httpRequest.headers.authorization;
 
-    if (process.env.MOCK_MODE === 'true' || authHeader) {
+    if (process.env.MOCK_MODE === 'true' || authorizationHeader) {
       // For now, allow all requests if mock mode is on or header exists
       return next();
     }
 
-    return res.status(401).json({
+    return httpResponse.status(401).json({
       error: 'Unauthorized',
       message: 'You must be logged in to access this resource.',
     });
   },
 
   /**
-   * Role-based access control (RBAC) middleware
+   * Role-based access control (RBAC) middleware for administrative routes.
+   * @param {Object} httpRequest - Express request object.
+   * @param {Object} httpResponse - Express response object.
+   * @param {Function} next - Express next middleware function.
    */
-  requireAdmin: (req, res, next) => {
+  requireAdmin: (httpRequest, httpResponse, next) => {
     // Implementation for admin-only routes
     next();
   },

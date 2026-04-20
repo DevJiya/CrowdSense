@@ -1,3 +1,11 @@
+/**
+ * @module GeminiService
+ * @description Interfaces with Google Gemini AI to provide real-time,
+ * tactical narrations of crowd analytics data via Server-Sent Events (SSE).
+ * @requires @google/generative-ai
+ * @requires dotenv
+ */
+
 /* eslint-disable no-console */
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
@@ -8,14 +16,22 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export const GeminiService = {
   /**
-   * Streams a tactical narration of analytics results.
-   * @param {Object} data - { message, analysis, language }
-   * @param {Object} res - Express response object.
+   * Streams a tactical narration of analytics results to the client using SSE.
+   * @async
+   * @param {Object} narrationPayload - The data needed for narration.
+   * @param {string} narrationPayload.message - The user's specific query or request.
+   * @param {Object} narrationPayload.analysis - The bottleneck analysis data from CrowdAnalyticsService.
+   * @param {string} [narrationPayload.language='English'] - The language for the AI response.
+   * @param {Object} httpResponse - Express response object for streaming.
+   * @returns {Promise<void>} Resolves when the stream is completed or closed.
+   * @throws {Error} If the Gemini API call fails or the stream is interrupted.
+   * @example
+   * await GeminiService.streamNarration({ message: "Status check", analysis: bottleneckData }, res);
    */
-  async streamNarration({ message, analysis, language = 'English' }, res) {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  async streamNarration({ message, analysis, language = 'English' }, httpResponse) {
+    const aiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `
+    const tacticalPrompt = `
             You are the CrowdSense AI Tactical Assistant.
             
             CONTEXT:
@@ -34,22 +50,22 @@ export const GeminiService = {
         `;
 
     try {
-      const result = await model.generateContentStream(prompt);
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
+      const aiContentStream = await aiModel.generateContentStream(tacticalPrompt);
+      httpResponse.setHeader('Content-Type', 'text/event-stream');
+      httpResponse.setHeader('Cache-Control', 'no-cache');
+      httpResponse.setHeader('Connection', 'keep-alive');
 
-      for await (const chunk of result.stream) {
-        const text = chunk.text();
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      for await (const streamChunk of aiContentStream.stream) {
+        const chunkText = streamChunk.text();
+        httpResponse.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
       }
 
-      res.write('data: [DONE]\n\n');
-      res.end();
+      httpResponse.write('data: [DONE]\n\n');
+      httpResponse.end();
     } catch (error) {
       console.error('[Gemini Error]', error.message);
-      res.write(`data: ${JSON.stringify({ error: 'AI narration failed' })}\n\n`);
-      res.end();
+      httpResponse.write(`data: ${JSON.stringify({ error: 'AI narration failed' })}\n\n`);
+      httpResponse.end();
     }
   },
 };

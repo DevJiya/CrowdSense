@@ -1,3 +1,14 @@
+/**
+ * @module App
+ * @description Core Express application configuration. Sets up global middleware,
+ * static asset serving, API routing, and SPA fallback logic.
+ * @requires path
+ * @requires url
+ * @requires express
+ * @requires SecurityMiddleware
+ * @requires apiRoutes
+ */
+
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -24,8 +35,13 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/api', apiRoutes);
 
 // ─── SPA FALLBACK ────────────────────────────────────────────────────
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+/**
+ * SPA Fallback route.
+ * @param {Object} httpRequest - Express request object.
+ * @param {Object} httpResponse - Express response object.
+ */
+app.get('*', (httpRequest, httpResponse) => {
+  httpResponse.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 export default app;

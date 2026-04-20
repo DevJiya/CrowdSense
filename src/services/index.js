@@ -1,3 +1,9 @@
+/**
+ * @module Services
+ * @description Central export point for all CrowdSense AI core services.
+ * Includes analytics, AI narration, cloud integration, and pathfinding engines.
+ */
+
 export * from './crowd.analytics.service.js';
 export * from './dijkstraEngine.js';
 export * from './gemini.service.js';

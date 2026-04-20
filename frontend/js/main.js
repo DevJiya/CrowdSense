@@ -1,3 +1,14 @@
+/**
+ * @module MainFrontend
+ * @description Core frontend logic for the CrowdSense AI tactical dashboard.
+ * Manages real-time stadium simulations, UI state transitions, Google Maps integration,
+ * and tactical AI chat interactions.
+ * @requires firebase
+ * @requires lucide
+ * @requires marked
+ * @requires google.maps
+ */
+
 const STADIUMS = {};
 
 const TABS = [
@@ -48,11 +59,20 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const rtdb = firebase.database();
 
+/**
+ * Initiates the Google SSO login flow.
+ * @fires firebase.auth.signInWithPopup
+ */
 function login() {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
+  const authProvider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(authProvider);
 }
 
+/**
+ * Core initialization function for the tactical dashboard.
+ * Sets up auth listeners, initial stadium nodes, and heartbeat cycles.
+ * @listens firebase.auth.onAuthStateChanged
+ */
 function init() {
   auth.onAuthStateChanged((user) => {
     if (!user) {
@@ -79,14 +99,19 @@ function init() {
     // Fast typing effect loop for Insights
     typingInterval = setInterval(() => {
       if (state.tab === 'insights' && state.priorityId) {
-        const s = STADIUMS[state.priorityId];
-        if (s && s.aiReportRaw && s.aiReportDisplayed.length < s.aiReportRaw.length) {
-          s.aiReportDisplayed += s.aiReportRaw.substr(state.terminalIndex, 4);
+        const stadiumData = STADIUMS[state.priorityId];
+        if (
+          stadiumData &&
+          stadiumData.aiReportRaw &&
+          stadiumData.aiReportDisplayed.length < stadiumData.aiReportRaw.length
+        ) {
+          stadiumData.aiReportDisplayed += stadiumData.aiReportRaw.substr(state.terminalIndex, 4);
           state.terminalIndex += 4;
-          const termEl = document.getElementById('ai-terminal');
-          if (termEl) {
-            termEl.innerHTML =
-              s.aiReportDisplayed.replace(/\n/g, '<br/>') + '<span class="terminal-cursor"></span>';
+          const terminalElement = document.getElementById('ai-terminal');
+          if (terminalElement) {
+            terminalElement.innerHTML =
+              stadiumData.aiReportDisplayed.replace(/\n/g, '<br/>') +
+              '<span class="terminal-cursor"></span>';
           }
         }
       }
@@ -97,15 +122,23 @@ function init() {
   });
 }
 
-function shuffle(array) {
-  let currentIndex = array.length,
+/**
+ * Shuffles an array in-place using the Fisher-Yates algorithm.
+ * @param {Array} arrayToShuffle - The target array.
+ * @returns {Array} The shuffled array.
+ */
+function shuffle(arrayToShuffle) {
+  let currentIndex = arrayToShuffle.length,
     randomIndex;
   while (currentIndex !== 0) {
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    [arrayToShuffle[currentIndex], arrayToShuffle[randomIndex]] = [
+      arrayToShuffle[randomIndex],
+      arrayToShuffle[currentIndex],
+    ];
   }
-  return array;
+  return arrayToShuffle;
 }
 
 // TARGET MANAGEMENT
@@ -122,15 +155,22 @@ const KNOWN_COORDS = {
   maracana: '-22.9121,-43.2302',
 };
 
-function addStadium(query, startOcc = 20, isInitial = false) {
-  const id = 'S_' + Date.now() + Math.floor(Math.random() * 1000);
-  const name = query.split(',')[0].substring(0, 25);
+/**
+ * Adds a new stadium node to the tracking system.
+ * @param {string} searchQuery - The location or name query.
+ * @param {number} [startOccupancy=20] - Initial occupancy percentage.
+ * @param {boolean} [isInitialLoad=false] - Whether this is part of the first bootstrap.
+ * @returns {string} The generated unique ID for the stadium.
+ */
+function addStadium(searchQuery, startOccupancy = 20, isInitialLoad = false) {
+  const stadiumId = 'S_' + Date.now() + Math.floor(Math.random() * 1000);
+  const displayName = searchQuery.split(',')[0].substring(0, 25);
 
-  let mapQuery = query;
-  const qLower = query.toLowerCase();
-  for (const key in KNOWN_COORDS) {
-    if (qLower.includes(key)) {
-      mapQuery = KNOWN_COORDS[key];
+  let mapQuery = searchQuery;
+  const queryLower = searchQuery.toLowerCase();
+  for (const knownKey in KNOWN_COORDS) {
+    if (queryLower.includes(knownKey)) {
+      mapQuery = KNOWN_COORDS[knownKey];
       break;
     }
   }
@@ -138,21 +178,21 @@ function addStadium(query, startOcc = 20, isInitial = false) {
   const pickedGates = shuffle([...GATE_NAMES]).slice(0, 4);
 
   // Precise Map Coordinate Generation
-  const sectors = pickedGates.map((n, i) => {
-    const baseAngle = i * 90 + 45; // Place at corners (45, 135, 225, 315) to perfectly frame the stadium
-    const angleOffset = Math.random() * 15 - 7.5; // Slight organic shift
+  const sectors = pickedGates.map((gateName, index) => {
+    const baseAngle = index * 90 + 45; // Place at corners (45, 135, 225, 315)
+    const angleOffset = Math.random() * 15 - 7.5;
     return {
-      n,
+      n: gateName,
       deg: baseAngle + angleOffset,
-      d: startOcc + (Math.random() * 20 - 10),
+      d: startOccupancy + (Math.random() * 20 - 10),
     };
   });
 
-  STADIUMS[id] = {
-    id,
+  STADIUMS[stadiumId] = {
+    id: stadiumId,
     query: encodeURIComponent(mapQuery),
-    name,
-    occ: startOcc,
+    name: displayName,
+    occ: startOccupancy,
     trend: 0,
     mood: 'CALM',
     chaosProb: 10,
@@ -164,33 +204,42 @@ function addStadium(query, startOcc = 20, isInitial = false) {
     aiReportDisplayed: '',
   };
 
-  state.trackedIds.unshift(id);
+  state.trackedIds.unshift(stadiumId);
   if (!state.priorityId) {
-    setPriority(id);
+    setPriority(stadiumId);
   }
-  fetchNews(id);
+  fetchNews(stadiumId);
   renderSidebar();
 
-  if (!isInitial) {
-    triggerAlert(id, 'INFO', `Tracking initiated for ${name}. Satellite locked.`);
+  if (!isInitialLoad) {
+    triggerAlert(stadiumId, 'INFO', `Tracking initiated for ${displayName}. Satellite locked.`);
   }
-  return id;
+  return stadiumId;
 }
 
-function handleSearch(val) {
-  if (!val.trim()) {
+/**
+ * Handles global search input to add and focus a new stadium.
+ * @param {string} inputValue - The raw search query.
+ */
+function handleSearch(inputValue) {
+  if (!inputValue.trim()) {
     return;
   }
   document.getElementById('global-search').value = '';
-  const id = addStadium(val, 25);
-  setPriority(id);
+  const stadiumId = addStadium(inputValue, 25);
+  setPriority(stadiumId);
 }
 
-function removeStadium(id, e) {
-  e.stopPropagation();
-  state.trackedIds = state.trackedIds.filter((tid) => tid !== id);
-  delete STADIUMS[id];
-  if (state.priorityId === id) {
+/**
+ * Removes a stadium from tracking and cleans up its data.
+ * @param {string} stadiumId - The ID of the stadium to remove.
+ * @param {Event} eventObject - The DOM event object.
+ */
+function removeStadium(stadiumId, eventObject) {
+  eventObject.stopPropagation();
+  state.trackedIds = state.trackedIds.filter((trackedId) => trackedId !== stadiumId);
+  delete STADIUMS[stadiumId];
+  if (state.priorityId === stadiumId) {
     state.priorityId = state.trackedIds[0] || null;
   }
   if (state.trackedIds.length === 0) {
@@ -200,154 +249,197 @@ function removeStadium(id, e) {
   renderApp();
 }
 
-function setPriority(id) {
-  if (!STADIUMS[id]) {
+/**
+ * Sets a stadium as the priority target for focused analysis.
+ * @param {string} stadiumId - The ID of the stadium to focus on.
+ */
+function setPriority(stadiumId) {
+  if (!STADIUMS[stadiumId]) {
     return;
   }
-  state.priorityId = id;
-  analyzeNewsForStadium(id);
+  state.priorityId = stadiumId;
+  analyzeNewsForStadium(stadiumId);
   renderSidebar();
   renderApp();
 }
 
-async function fetchNews(id) {
-  const s = STADIUMS[id];
+/**
+ * Fetches latest news headlines for a specific stadium to inject into AI reports.
+ * @async
+ * @param {string} stadiumId - The ID of the stadium.
+ */
+async function fetchNews(stadiumId) {
+  const stadiumData = STADIUMS[stadiumId];
   try {
-    const r = await fetch(
-      `https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/search?q=${s.query}+news&hl=en-IN&gl=IN&ceid=IN:en`,
+    const httpResponse = await fetch(
+      `https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/search?q=${stadiumData.query}+news&hl=en-IN&gl=IN&ceid=IN:en`,
     );
-    const d = await r.json();
-    if (d.items && d.items.length > 0) {
-      s.news = d.items.slice(0, 4);
+    const jsonData = await httpResponse.json();
+    if (jsonData.items && jsonData.items.length > 0) {
+      stadiumData.news = jsonData.items.slice(0, 4);
     } else {
       throw new Error('Empty Feed');
     }
-  } catch (e) {
+  } catch (error) {
     // FALLBACK: If RSS fails/is blocked, load realistic data so Insights is NEVER dead.
-    s.news = [
+    stadiumData.news = [
       {
-        title: `Local authorities review security protocols ahead of event at ${s.name}`,
+        title: `Local authorities review security protocols ahead of event at ${stadiumData.name}`,
         source: { name: 'City News Tribune' },
       },
       {
-        title: `Traffic advisories issued for major intersections near ${s.name}`,
+        title: `Traffic advisories issued for major intersections near ${stadiumData.name}`,
         source: { name: 'Metro Transit Alerts' },
       },
       {
-        title: `Fans advised to arrive early for rapid entry at ${s.name} gates`,
+        title: `Fans advised to arrive early for rapid entry at ${stadiumData.name} gates`,
         source: { name: 'Global Sports Media' },
       },
     ];
   }
-  if (id === state.priorityId) {
-    analyzeNewsForStadium(id);
+  if (stadiumId === state.priorityId) {
+    analyzeNewsForStadium(stadiumId);
   }
 }
 
-function analyzeNewsForStadium(id) {
-  const s = STADIUMS[id];
-  if (!s || !s.news || s.news.length === 0) {
+/**
+ * Performs heuristic sentiment analysis on news headlines to update stadium chaos probability.
+ * @param {string} stadiumId - The ID of the stadium to analyze.
+ */
+function analyzeNewsForStadium(stadiumId) {
+  const stadiumData = STADIUMS[stadiumId];
+  if (!stadiumData || !stadiumData.news || stadiumData.news.length === 0) {
     return;
   }
 
-  let report = `> CONNECTING TO NEURAL SOURCE...\n> PARSING LIVE RSS FEEDS FOR: ${s.name.toUpperCase()}\n\n`;
-  const titles = s.news.map((n) => n.title.toLowerCase());
+  let finalReport = `> CONNECTING TO NEURAL SOURCE...\n> PARSING LIVE RSS FEEDS FOR: ${stadiumData.name.toUpperCase()}\n\n`;
+  const newsTitles = stadiumData.news.map((newsItem) => newsItem.title.toLowerCase());
 
-  if (titles.some((t) => t.includes('match') || t.includes('fans') || t.includes('crowd'))) {
-    report += `[ALERT] Sentiment spike detected. Large crowd keywords present in recent broadcasts.\n`;
+  if (
+    newsTitles.some(
+      (title) => title.includes('match') || title.includes('fans') || title.includes('crowd'),
+    )
+  ) {
+    finalReport += `[ALERT] Sentiment spike detected. Large crowd keywords present in recent broadcasts.\n`;
   } else {
-    report += `[INFO] General event chatter detected. Sentiment is stable.\n`;
+    finalReport += `[INFO] General event chatter detected. Sentiment is stable.\n`;
   }
 
-  if (titles.some((t) => t.includes('traffic') || t.includes('police') || t.includes('delay'))) {
-    report += `[CRITICAL] Logistics friction reported. Expect localized congestion.\n`;
-    s.chaosProb = Math.min(99, s.chaosProb + 15);
+  if (
+    newsTitles.some(
+      (title) => title.includes('traffic') || title.includes('police') || title.includes('delay'),
+    )
+  ) {
+    finalReport += `[CRITICAL] Logistics friction reported. Expect localized congestion.\n`;
+    stadiumData.chaosProb = Math.min(99, stadiumData.chaosProb + 15);
   } else {
-    report += `[INFO] No major traffic anomalies reported by local news sources.\n`;
+    finalReport += `[INFO] No major traffic anomalies reported by local news sources.\n`;
   }
-  report += `\n> SYNTHESIS COMPLETE. UPDATING PREDICTIVE ALGORITHMS.`;
+  finalReport += `\n> SYNTHESIS COMPLETE. UPDATING PREDICTIVE ALGORITHMS.`;
 
-  s.aiReportRaw = report;
-  s.aiReportDisplayed = ''; // Reset for typing effect
+  stadiumData.aiReportRaw = finalReport;
+  stadiumData.aiReportDisplayed = ''; // Reset for typing effect
   state.terminalIndex = 0;
 }
 
 // SIMULATION
+/**
+ * Main simulation heartbeat. Updates all stadium nodes with organic drift,
+ * processes chaos probabilities, and synchronizes with Firebase RTDB.
+ * @fires Firebase.database.ref.set
+ */
 function simulateEngine() {
   state.failedSensors = Math.floor(Math.random() * 4);
-  document.getElementById('global-sensor-status').innerText =
-    `${state.totalSensors - state.failedSensors}/${state.totalSensors} Online`;
+  const sensorStatusElement = document.getElementById('global-sensor-status');
+  if (sensorStatusElement) {
+    sensorStatusElement.innerText = `${state.totalSensors - state.failedSensors}/${state.totalSensors} Online`;
+  }
 
-  let maxChaos = 0;
+  let maxChaosValue = 0;
 
   // Generate routine "Alive" alerts
   if (Math.random() > 0.8 && state.priorityId) {
-    const routineMsgs = [
+    const routineMessages = [
       'Sector sweep complete. Traffic nominal.',
       'Thermal scan recalibrated.',
       'Drone uplink strength at 98%.',
       'Acoustic baseline recorded.',
       'Re-routing pedestrian flow at outer perimeter.',
     ];
-    const msg = routineMsgs[Math.floor(Math.random() * routineMsgs.length)];
-    triggerAlert(state.priorityId, 'INFO', msg);
+    const alertMessage = routineMessages[Math.floor(Math.random() * routineMessages.length)];
+    triggerAlert(state.priorityId, 'INFO', alertMessage);
 
     // Live update the Insights Terminal so it never stops working
-    const s = STADIUMS[state.priorityId];
-    if (s) {
-      if (!s.aiReportRaw) {
-        s.aiReportRaw = '';
+    const stadiumData = STADIUMS[state.priorityId];
+    if (stadiumData) {
+      if (!stadiumData.aiReportRaw) {
+        stadiumData.aiReportRaw = '';
       }
-      s.aiReportRaw += `\n> [SYS_UPDATE] ${msg}`;
+      stadiumData.aiReportRaw += `\n> [SYS_UPDATE] ${alertMessage}`;
     }
   }
 
-  state.trackedIds.forEach((id) => {
-    const s = STADIUMS[id];
-    const prev = s.occ;
-    s.occ = Math.max(5, Math.min(99, s.occ + (Math.random() * 8 - 4)));
-    s.trend = s.occ - prev;
+  state.trackedIds.forEach((stadiumId) => {
+    const stadiumData = STADIUMS[stadiumId];
+    const previousOccupancy = stadiumData.occ;
+    stadiumData.occ = Math.max(5, Math.min(99, stadiumData.occ + (Math.random() * 8 - 4)));
+    stadiumData.trend = stadiumData.occ - previousOccupancy;
 
-    s.chaosProb = Math.max(0, Math.min(99, Math.floor(s.occ * 0.8 + s.trend * 3)));
-    s.mood = s.chaosProb > 75 ? 'CHAOS' : s.chaosProb > 40 ? 'TENSE' : 'CALM';
-    s.acoustic = Math.floor(60 + s.occ * 0.4 + Math.random() * 10);
+    stadiumData.chaosProb = Math.max(
+      0,
+      Math.min(99, Math.floor(stadiumData.occ * 0.8 + stadiumData.trend * 3)),
+    );
+    stadiumData.mood =
+      stadiumData.chaosProb > 75 ? 'CHAOS' : stadiumData.chaosProb > 40 ? 'TENSE' : 'CALM';
+    stadiumData.acoustic = Math.floor(60 + stadiumData.occ * 0.4 + Math.random() * 10);
 
-    if (s.chaosProb > maxChaos) {
-      maxChaos = s.chaosProb;
+    if (stadiumData.chaosProb > maxChaosValue) {
+      maxChaosValue = stadiumData.chaosProb;
     }
 
-    let lowestSector = s.sectors[0];
-    s.sectors.forEach((sec) => {
-      sec.d = Math.max(5, Math.min(99, sec.d + (Math.random() * 16 - 8)));
-      if (sec.d < lowestSector.d) {
-        lowestSector = sec;
+    let lowestDensitySector = stadiumData.sectors[0];
+    stadiumData.sectors.forEach((sectorData) => {
+      sectorData.d = Math.max(5, Math.min(99, sectorData.d + (Math.random() * 16 - 8)));
+      if (sectorData.d < lowestDensitySector.d) {
+        lowestDensitySector = sectorData;
       }
 
       // ELITE FEATURE: Dynamic Reroute Alert
-      if (sec.d > 92 && (!state.lastReroute || Date.now() - state.lastReroute > 30000)) {
-        triggerRerouteAlert(id, sec.n);
+      if (sectorData.d > 92 && (!state.lastReroute || Date.now() - state.lastReroute > 30000)) {
+        triggerRerouteAlert(stadiumId, sectorData.n);
       }
 
-      if (sec.d > 90) {
-        triggerAlert(id, 'CRITICAL', `Density breach at ${sec.n}. Stampede risk elevated.`);
+      if (sectorData.d > 90) {
+        triggerAlert(
+          stadiumId,
+          'CRITICAL',
+          `Density breach at ${sectorData.n}. Stampede risk elevated.`,
+        );
       }
     });
-    s.evacRoute = lowestSector.n;
+    stadiumData.evacRoute = lowestDensitySector.n;
   });
 
-  const threatEl = document.getElementById('global-threat');
-  if (threatEl) {
-    threatEl.innerText = maxChaos > 75 ? 'CRITICAL' : maxChaos > 40 ? 'ELEVATED' : 'NOMINAL';
-    threatEl.className = `font-bold ${maxChaos > 75 ? 'text-red-500' : maxChaos > 40 ? 'text-yellow-400' : 'text-green-500'}`;
+  const threatElement = document.getElementById('global-threat');
+  if (threatElement) {
+    threatElement.innerText =
+      maxChaosValue > 75 ? 'CRITICAL' : maxChaosValue > 40 ? 'ELEVATED' : 'NOMINAL';
+    threatElement.className = `font-bold ${
+      maxChaosValue > 75
+        ? 'text-red-500'
+        : maxChaosValue > 40
+          ? 'text-yellow-400'
+          : 'text-green-500'
+    }`;
   }
 
   // [Firebase RTDB] Real-time Sync
   if (state.priorityId) {
-    const s = STADIUMS[state.priorityId];
-    rtdb.ref(`telemetry/${s.id}`).set({
-      occupancy: s.occ,
-      risk: s.mood,
-      threat: threatEl ? threatEl.innerText : 'NOMINAL',
+    const activeStadium = STADIUMS[state.priorityId];
+    rtdb.ref(`telemetry/${activeStadium.id}`).set({
+      occupancy: activeStadium.occ,
+      risk: activeStadium.mood,
+      threat: threatElement ? threatElement.innerText : 'NOMINAL',
       timestamp: firebase.database.ServerValue.TIMESTAMP,
     });
   }
@@ -361,14 +453,19 @@ function simulateEngine() {
   }
 }
 
-function triggerRerouteAlert(sid, sectorName) {
+/**
+ * Displays a critical modal for dynamic path rerouting when density breaches thresholds.
+ * @param {string} stadiumId - The ID of the stadium.
+ * @param {string} sectorName - The name of the congested sector.
+ * @fires DOM.appendChild
+ */
+function triggerRerouteAlert(stadiumId, sectorName) {
   state.lastReroute = Date.now();
-  const s = STADIUMS[sid];
-  const modal = document.createElement('div');
-  modal.id = 'reroute-modal';
-  modal.className =
+  const rerouteModal = document.createElement('div');
+  rerouteModal.id = 'reroute-modal';
+  rerouteModal.className =
     'fixed inset-0 z-[4000] flex items-center justify-center bg-black/60 backdrop-blur-sm';
-  modal.innerHTML = `
+  rerouteModal.innerHTML = `
         <div class="card p-8 max-w-md w-full border-red-500/50 bg-[#0a0a0a]/90 animate-in fade-in zoom-in duration-300">
             <div class="flex items-center gap-4 mb-6">
                 <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -384,31 +481,49 @@ function triggerRerouteAlert(sid, sectorName) {
             </p>
             <div class="flex gap-4">
                 <button onclick="document.getElementById('reroute-modal').remove()" class="flex-1 px-4 py-3 border border-[#333] text-gray-400 font-bold rounded-xl hover:bg-white/5 transition-all">Dismiss</button>
-                <button onclick="acceptReroute('${sid}')" class="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all">Execute Reroute</button>
+                <button onclick="acceptReroute('${stadiumId}')" class="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all">Execute Reroute</button>
             </div>
         </div>
     `;
-  document.body.appendChild(modal);
+  document.body.appendChild(rerouteModal);
   lucide.createIcons();
 }
 
-function acceptReroute(sid) {
-  triggerToast(`[TACTICAL] Evacuation path updated for ${STADIUMS[sid].name}`, true);
-  document.getElementById('reroute-modal').remove();
+/**
+ * Accepts the recommended reroute and navigates the user to the map.
+ * @param {string} stadiumId - The ID of the stadium.
+ */
+function acceptReroute(stadiumId) {
+  triggerToast(`[TACTICAL] Evacuation path updated for ${STADIUMS[stadiumId].name}`, true);
+  const modalElement = document.getElementById('reroute-modal');
+  if (modalElement) {
+    modalElement.remove();
+  }
   switchTab('map');
 }
 
-function triggerAlert(sid, type, msg) {
+/**
+ * Injects a new alert into the tactical feed.
+ * @param {string} stadiumId - The originating stadium ID.
+ * @param {'CRITICAL' | 'INFO' | 'WARN'} alertType - The severity level.
+ * @param {string} alertMessage - The detailed description.
+ */
+function triggerAlert(stadiumId, alertType, alertMessage) {
   if (
-    state.alerts.find((a) => a.sid === sid && a.msg === msg && Date.now() - a.timestamp < 15000)
+    state.alerts.find(
+      (existingAlert) =>
+        existingAlert.sid === stadiumId &&
+        existingAlert.msg === alertMessage &&
+        Date.now() - existingAlert.timestamp < 15000,
+    )
   ) {
     return;
   }
   state.alerts.unshift({
     id: Date.now(),
-    sid,
-    type,
-    msg,
+    sid: stadiumId,
+    type: alertType,
+    msg: alertMessage,
     time: new Date().toLocaleTimeString(),
     timestamp: Date.now(),
   });
@@ -416,8 +531,8 @@ function triggerAlert(sid, type, msg) {
     state.alerts.pop();
   }
 
-  if ((type === 'CRITICAL' || type === 'INFO') && sid === state.priorityId) {
-    triggerToast(`[${type}] ${msg}`, type === 'CRITICAL');
+  if ((alertType === 'CRITICAL' || alertType === 'INFO') && stadiumId === state.priorityId) {
+    triggerToast(`[${alertType}] ${alertMessage}`, alertType === 'CRITICAL');
   }
   renderNavbar();
   if (state.tab === 'alerts') {
@@ -425,73 +540,104 @@ function triggerAlert(sid, type, msg) {
   }
 }
 
-function triggerToast(msg, isCritical = false) {
-  const container = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = `toast pointer-events-auto ${isCritical ? 'critical' : ''}`;
-  t.innerHTML = `<div class="text-[10px] font-bold uppercase ${isCritical ? 'text-red-500' : 'text-blue-500'} mb-1">System Log</div><div class="text-xs text-gray-300 leading-snug">${msg}</div>`;
-  container.appendChild(t);
+/**
+ * Displays a temporary toast notification in the UI.
+ * @param {string} toastMessage - The text to display.
+ * @param {boolean} [isCritical=false] - Whether to apply high-visibility styling.
+ */
+function triggerToast(toastMessage, isCritical = false) {
+  const toastContainer = document.getElementById('toast-container');
+  const toastElement = document.createElement('div');
+  toastElement.className = `toast pointer-events-auto ${isCritical ? 'critical' : ''}`;
+  toastElement.innerHTML = `<div class="text-[10px] font-bold uppercase ${
+    isCritical ? 'text-red-500' : 'text-blue-500'
+  } mb-1">System Log</div><div class="text-xs text-gray-300 leading-snug">${toastMessage}</div>`;
+  toastContainer.appendChild(toastElement);
   setTimeout(() => {
-    t.style.opacity = '0';
-    t.style.transform = 'translateY(20px)';
-    setTimeout(() => t.remove(), 400);
+    toastElement.style.opacity = '0';
+    toastElement.style.transform = 'translateY(20px)';
+    setTimeout(() => toastElement.remove(), 400);
   }, 5000);
 }
 
 // RENDER LOGIC
+/**
+ * Toggles between TACTICAL and OPERATOR view modes.
+ */
 function toggleViewMode() {
   state.viewMode = state.viewMode === 'TACTICAL' ? 'OPERATOR' : 'TACTICAL';
-  document.getElementById('view-mode-label').innerText = state.viewMode;
+  const viewModeLabel = document.getElementById('view-mode-label');
+  if (viewModeLabel) {
+    viewModeLabel.innerText = state.viewMode;
+  }
   renderApp();
 }
 
-function switchTab(id) {
-  state.tab = id;
+/**
+ * Switches the active application tab and re-renders the interface.
+ * @param {string} tabId - The ID of the tab to switch to.
+ */
+function switchTab(tabId) {
+  state.tab = tabId;
   renderNavbar();
   renderApp();
   lucide.createIcons();
 }
 
+/**
+ * Renders the top navigation bar based on the TABS configuration.
+ */
 function renderNavbar() {
-  const nav = document.getElementById('nav-links');
-  nav.innerHTML = TABS.map(
-    (t) => `
+  const navbarContainer = document.getElementById('nav-links');
+  navbarContainer.innerHTML = TABS.map(
+    (tabItem) => `
         <button class="nav-link-container outline-none focus:ring-1 focus:ring-white rounded-lg px-2" 
-            style="color: ${state.tab === t.id ? '#ffffff' : '#a1a1aa'}" 
-            onclick="switchTab('${t.id}')"
-            aria-label="Switch to ${t.label} tab"
-            aria-current="${state.tab === t.id ? 'page' : 'false'}">
-            ${t.label}
-            ${state.tab === t.id ? '<div class="active-dot" aria-hidden="true"></div>' : ''}
+            style="color: ${state.tab === tabItem.id ? '#ffffff' : '#a1a1aa'}" 
+            onclick="switchTab('${tabItem.id}')"
+            aria-label="Switch to ${tabItem.label} tab"
+            aria-current="${state.tab === tabItem.id ? 'page' : 'false'}">
+            ${tabItem.label}
+            ${state.tab === tabItem.id ? '<div class="active-dot" aria-hidden="true"></div>' : ''}
         </button>
     `,
   ).join('');
 }
 
+/**
+ * Renders the sidebar target list with real-time status indicators.
+ */
 function renderSidebar() {
-  const priorityLabel = document.getElementById('priority-target-name');
-  priorityLabel.innerText =
-    state.priorityId && STADIUMS[state.priorityId] ? STADIUMS[state.priorityId].name : 'None';
+  const priorityLabelElement = document.getElementById('priority-target-name');
+  if (priorityLabelElement) {
+    priorityLabelElement.innerText =
+      state.priorityId && STADIUMS[state.priorityId] ? STADIUMS[state.priorityId].name : 'None';
+  }
 
-  const list = document.getElementById('target-list');
-  list.innerHTML = state.trackedIds
-    .map((id) => {
-      const s = STADIUMS[id];
-      const isPri = id === state.priorityId;
+  const targetListContainer = document.getElementById('target-list');
+  targetListContainer.innerHTML = state.trackedIds
+    .map((stadiumId) => {
+      const stadiumData = STADIUMS[stadiumId];
+      const isPriority = stadiumId === state.priorityId;
       return `
-        <div class="p-3 rounded-lg flex justify-between items-center cursor-pointer border ${isPri ? 'border-gray-500 bg-[rgba(255,255,255,0.05)]' : 'border-transparent hover:border-[#333]'} focus-within:ring-1 focus-within:ring-white" 
-             onclick="setPriority('${id}')" 
+        <div class="p-3 rounded-lg flex justify-between items-center cursor-pointer border ${
+          isPriority
+            ? 'border-gray-500 bg-[rgba(255,255,255,0.05)]'
+            : 'border-transparent hover:border-[#333]'
+        } focus-within:ring-1 focus-within:ring-white" 
+             onclick="setPriority('${stadiumId}')" 
              role="listitem"
-             aria-selected="${isPri}"
+             aria-selected="${isPriority}"
              tabindex="0"
-             onkeydown="if(event.key==='Enter') setPriority('${id}')">
+             onkeydown="if(event.key==='Enter') setPriority('${stadiumId}')">
             <div class="flex flex-col overflow-hidden mr-2">
-                <span class="text-xs font-semibold text-white truncate">${s.name}</span>
-                <span class="text-[10px] ${s.occ > 80 ? 'text-red-400' : 'text-gray-400'}">${Math.floor(s.occ)}% Capacity</span>
+                <span class="text-xs font-semibold text-white truncate">${stadiumData.name}</span>
+                <span class="text-[10px] ${
+                  stadiumData.occ > 80 ? 'text-red-400' : 'text-gray-400'
+                }">${Math.floor(stadiumData.occ)}% Capacity</span>
             </div>
             <button class="p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors shrink-0" 
-                    onclick="removeStadium('${id}', event)"
-                    aria-label="Stop tracking ${s.name}">
+                    onclick="removeStadium('${stadiumId}', event)"
+                    aria-label="Stop tracking ${stadiumData.name}">
                 <i data-lucide="x" class="w-3 h-3" aria-hidden="true"></i>
             </button>
         </div>
@@ -501,42 +647,47 @@ function renderSidebar() {
   lucide.createIcons();
 }
 
+/**
+ * Primary application renderer. Dispatches to specific tab renderers
+ * and handles global UI state synchronization.
+ * @fires lucide.createIcons
+ */
 function renderApp() {
-  const container = document.getElementById('app-container');
+  const appContainer = document.getElementById('app-container');
   if (state.trackedIds.length === 0) {
-    container.innerHTML = `<div class="card h-full w-full flex flex-col items-center justify-center text-center gap-4"><i data-lucide="crosshair" class="w-12 h-12 text-gray-600"></i><div class="text-gray-400">Search for a stadium to begin tracking.</div></div>`;
+    appContainer.innerHTML = `<div class="card h-full w-full flex flex-col items-center justify-center text-center gap-4"><i data-lucide="crosshair" class="w-12 h-12 text-gray-600"></i><div class="text-gray-400">Search for a stadium to begin tracking.</div></div>`;
     lucide.createIcons();
     return;
   }
 
-  const pStadium = STADIUMS[state.priorityId];
+  const priorityStadiumData = STADIUMS[state.priorityId];
 
   if (state.tab === 'overview') {
-    container.innerHTML = `
+    appContainer.innerHTML = `
             <div class="card h-full p-6 flex flex-col gap-6">
                 <div class="stat-label border-b border-[#333] pb-4 flex justify-between"><span>Global Security Grid</span><span>Target Nodes: ${state.trackedIds.length}</span></div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto no-scrollbar pb-10">
                     ${state.trackedIds
-                      .map((id) => {
-                        const s = STADIUMS[id];
+                      .map((stadiumId) => {
+                        const stadiumData = STADIUMS[stadiumId];
                         return `
-                        <div class="card p-6 flex flex-col gap-4 cursor-pointer hover:border-gray-500 transition-colors bg-[rgba(0,0,0,0.3)]" onclick="setPriority('${id}')">
+                        <div class="card p-6 flex flex-col gap-4 cursor-pointer hover:border-gray-500 transition-colors bg-[rgba(0,0,0,0.3)]" onclick="setPriority('${stadiumId}')">
                             <div class="flex justify-between items-start border-b border-[#333] pb-4">
                                 <div class="flex flex-col gap-1">
-                                    <span class="text-sm font-bold text-white">${s.name}</span>
-                                    <span class="text-[10px] font-mono text-gray-400">Acoustic: ${s.acoustic}dB</span>
+                                    <span class="text-sm font-bold text-white">${stadiumData.name}</span>
+                                    <span class="text-[10px] font-mono text-gray-400">Acoustic: ${stadiumData.acoustic}dB</span>
                                 </div>
                                 <div class="flex flex-col items-end gap-1">
-                                    <span class="text-xl font-bold ${s.occ > 80 ? 'text-red-400' : 'text-white'}">${Math.floor(s.occ)}%</span>
-                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded ${s.mood === 'CHAOS' ? 'bg-red-500/20 text-red-500' : s.mood === 'TENSE' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-green-500/20 text-green-500'}">${s.mood}</span>
+                                    <span class="text-xl font-bold ${stadiumData.occ > 80 ? 'text-red-400' : 'text-white'}">${Math.floor(stadiumData.occ)}%</span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded ${stadiumData.mood === 'CHAOS' ? 'bg-red-500/20 text-red-500' : stadiumData.mood === 'TENSE' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-green-500/20 text-green-500'}">${stadiumData.mood}</span>
                                 </div>
                             </div>
                             <div class="flex justify-between items-center text-xs">
                                 <span class="text-gray-400">Chaos Probability</span>
-                                <span class="font-bold ${s.chaosProb > 75 ? 'text-red-400' : 'text-white'}">${s.chaosProb}%</span>
+                                <span class="font-bold ${stadiumData.chaosProb > 75 ? 'text-red-400' : 'text-white'}">${stadiumData.chaosProb}%</span>
                             </div>
                             <div class="h-1.5 bg-[#333] rounded-full overflow-hidden">
-                                <div class="h-full bg-white transition-all duration-500" style="width:${s.chaosProb}%; background:${s.chaosProb > 75 ? '#EF4444' : s.chaosProb > 40 ? '#EAB308' : '#3B82F6'}"></div>
+                                <div class="h-full bg-white transition-all duration-500" style="width:${stadiumData.chaosProb}%; background:${stadiumData.chaosProb > 75 ? '#EF4444' : stadiumData.chaosProb > 40 ? '#EAB308' : '#3B82F6'}"></div>
                             </div>
                         </div>`;
                       })
@@ -544,15 +695,15 @@ function renderApp() {
                 </div>
             </div>`;
   } else if (state.tab === 'map') {
-    container.innerHTML = `
+    appContainer.innerHTML = `
             <div class="flex flex-col gap-4 h-full relative">
                 <div class="flex gap-4">
-                    ${pStadium.sectors
+                    ${priorityStadiumData.sectors
                       .map(
-                        (sec, i) => `
-                        <div id="side-sec-${i}" class="card flex-1 p-4 flex justify-between items-center bg-[rgba(0,0,0,0.5)]">
-                            <span class="stat-label truncate">${sec.n}</span>
-                            <span class="text-sm font-bold ${sec.d > 85 ? 'text-red-400' : 'text-white'}">${Math.floor(sec.d)}%</span>
+                        (sectorData, index) => `
+                        <div id="side-sec-${index}" class="card flex-1 p-4 flex justify-between items-center bg-[rgba(0,0,0,0.5)]">
+                            <span class="stat-label truncate">${sectorData.n}</span>
+                            <span class="text-sm font-bold ${sectorData.d > 85 ? 'text-red-400' : 'text-white'}">${Math.floor(sectorData.d)}%</span>
                         </div>
                     `,
                       )
@@ -574,21 +725,21 @@ function renderApp() {
                     </div>
                     
                     <!-- TACTICAL HEATMAP SECTOR MARKERS -->
-                    ${pStadium.sectors
-                      .map((sec, i) => {
-                        const rad = sec.deg * (Math.PI / 180);
-                        const rx = 14; // Tightened from 24% to 14% to perfectly hug the stadium roof
+                    ${priorityStadiumData.sectors
+                      .map((sectorData, index) => {
+                        const rad = sectorData.deg * (Math.PI / 180);
+                        const rx = 14; // Tightened from 24% to 14% to perfectly frame the stadium roof
                         const ry = 22; // Tightened from 32% to 22%
                         const x = 50 + Math.cos(rad) * rx;
                         const y = 50 + Math.sin(rad) * ry;
                         return `
-                        <div id="marker-${i}" class="absolute" style="left: ${x}%; top: ${y}%; transform: translate(-50%, -50%); z-index: 20; pointer-events: none;">
+                        <div id="marker-${index}" class="absolute" style="left: ${x}%; top: ${y}%; transform: translate(-50%, -50%); z-index: 20; pointer-events: none;">
                             <div class="relative flex flex-col items-center justify-center pointer-events-none">
-                                <div class="w-14 h-14 rounded-full border border-dashed ${sec.d > 85 ? 'border-red-500 animate-[spin_3s_linear_infinite]' : 'border-green-500/50 animate-[spin_10s_linear_infinite]'} opacity-80 absolute pointer-events-none"></div>
-                                <div class="w-3 h-3 rounded-full ${sec.d > 85 ? 'bg-red-500 shadow-[0_0_25px_#ef4444]' : 'bg-green-500 shadow-[0_0_15px_#10b981]'} relative z-10 border-2 border-black pointer-events-none"></div>
-                                <div class="mt-4 bg-[#0a0a0a]/90 backdrop-blur-md border ${sec.d > 85 ? 'border-red-500/50' : 'border-[#333]'} px-3 py-1.5 rounded-lg text-center shadow-2xl pointer-events-none transition-colors">
-                                    <div class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 pointer-events-none">${sec.n}</div>
-                                    <div class="text-[13px] font-black ${sec.d > 85 ? 'text-red-400' : 'text-white'} pointer-events-none">${Math.floor(sec.d)}% DENSITY</div>
+                                <div class="w-14 h-14 rounded-full border border-dashed ${sectorData.d > 85 ? 'border-red-500 animate-[spin_3s_linear_infinite]' : 'border-green-500/50 animate-[spin_10s_linear_infinite]'} opacity-80 absolute pointer-events-none"></div>
+                                <div class="w-3 h-3 rounded-full ${sectorData.d > 85 ? 'bg-red-500 shadow-[0_0_25px_#ef4444]' : 'bg-green-500 shadow-[0_0_15px_#10b981]'} relative z-10 border-2 border-black pointer-events-none"></div>
+                                <div class="mt-4 bg-[#0a0a0a]/90 backdrop-blur-md border ${sectorData.d > 85 ? 'border-red-500/50' : 'border-[#333]'} px-3 py-1.5 rounded-lg text-center shadow-2xl pointer-events-none transition-colors">
+                                    <div class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 pointer-events-none">${sectorData.n}</div>
+                                    <div class="text-[13px] font-black ${sectorData.d > 85 ? 'text-red-400' : 'text-white'} pointer-events-none">${Math.floor(sectorData.d)}% DENSITY</div>
                                 </div>
                             </div>
                         </div>`;
@@ -597,7 +748,7 @@ function renderApp() {
                 </div>
             </div>`;
   } else if (state.tab === 'detector') {
-    container.innerHTML = `
+    appContainer.innerHTML = `
             <div class="card h-full p-6 flex flex-col gap-6">
                 <div class="stat-label border-b border-[#333] pb-4 flex justify-between">
                     <span>Neural Pulse Grid (SN-1 to SN-48)</span>
@@ -605,32 +756,32 @@ function renderApp() {
                 </div>
                 <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-6 pb-10 overflow-y-auto no-scrollbar">
                     ${Array.from({ length: 48 })
-                      .map((_, i) => {
-                        const isBad = i < state.failedSensors;
+                      .map((_, index) => {
+                        const isNodeFailing = index < state.failedSensors;
                         return `
                         <div class="flex flex-col items-center gap-3 p-4 bg-[rgba(0,0,0,0.3)] rounded-lg border border-[#333]">
-                            <div class="pulse-ring ${isBad ? 'red' : ''}"></div>
-                            <span class="text-[9px] font-mono text-gray-500">SN-${i + 1}</span>
+                            <div class="pulse-ring ${isNodeFailing ? 'red' : ''}"></div>
+                            <span class="text-[9px] font-mono text-gray-500">SN-${index + 1}</span>
                         </div>`;
                       })
                       .join('')}
                 </div>
             </div>`;
   } else if (state.tab === 'insights') {
-    container.innerHTML = `
+    appContainer.innerHTML = `
             <div class="flex gap-6 h-full">
                 <div class="card w-1/2 p-6 flex flex-col gap-4 overflow-hidden">
-                    <div class="stat-label border-b border-[#333] pb-4">Live News Intel: ${pStadium.name}</div>
+                    <div class="stat-label border-b border-[#333] pb-4">Live News Intel: ${priorityStadiumData.name}</div>
                     <div class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3">
                         ${
-                          !pStadium.news || pStadium.news.length === 0
+                          !priorityStadiumData.news || priorityStadiumData.news.length === 0
                             ? '<div class="text-sm text-gray-500 text-center mt-10">Awaiting Feed...</div>'
-                            : pStadium.news
+                            : priorityStadiumData.news
                                 .map(
-                                  (n) => `
+                                  (newsItem) => `
                             <div class="p-4 bg-[rgba(255,255,255,0.03)] border border-[#333] rounded-lg">
-                                <div class="text-xs font-semibold text-white leading-relaxed">${n.title}</div>
-                                <div class="text-[10px] text-gray-500 mt-2">${n.source?.name || 'RSS'} • ${new Date().toLocaleDateString()}</div>
+                                <div class="text-xs font-semibold text-white leading-relaxed">${newsItem.title}</div>
+                                <div class="text-[10px] text-gray-500 mt-2">${newsItem.source?.name || 'RSS'} • ${new Date().toLocaleDateString()}</div>
                             </div>
                         `,
                                 )
@@ -644,21 +795,21 @@ function renderApp() {
                             AI Neural Synthesis <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                         </div>
                         <div id="ai-terminal" class="font-mono text-[11px] text-gray-300 leading-relaxed overflow-y-auto no-scrollbar whitespace-pre-wrap">
-                            ${pStadium.aiReportDisplayed}<span class="terminal-cursor"></span>
+                            ${priorityStadiumData.aiReportDisplayed}<span class="terminal-cursor"></span>
                         </div>
                     </div>
                     <div class="card p-6 bg-[rgba(16,185,129,0.05)] border-green-500/20">
                         <div class="stat-label text-green-400 mb-4">Tactical Response Plan</div>
                         <div class="flex flex-col gap-3 text-xs">
-                            <div class="flex justify-between"><span class="text-gray-400">Primary Evacuation Route:</span><span class="font-bold text-white">${pStadium.evacRoute}</span></div>
-                            <div class="flex justify-between"><span class="text-gray-400">Riot Control Status:</span><span class="font-bold ${pStadium.mood === 'CHAOS' ? 'text-red-500' : 'text-gray-300'}">${pStadium.mood === 'CHAOS' ? 'DEPLOYING' : 'STANDBY'}</span></div>
-                            <div class="flex justify-between"><span class="text-gray-400">Medical Response ETA:</span><span class="font-bold text-white">${pStadium.chaosProb > 50 ? '3 mins' : '12 mins'}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Primary Evacuation Route:</span><span class="font-bold text-white">${priorityStadiumData.evacRoute}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Riot Control Status:</span><span class="font-bold ${priorityStadiumData.mood === 'CHAOS' ? 'text-red-500' : 'text-gray-300'}">${priorityStadiumData.mood === 'CHAOS' ? 'DEPLOYING' : 'STANDBY'}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-400">Medical Response ETA:</span><span class="font-bold text-white">${priorityStadiumData.chaosProb > 50 ? '3 mins' : '12 mins'}</span></div>
                         </div>
                     </div>
                 </div>
             </div>`;
   } else if (state.tab === 'alerts') {
-    container.innerHTML = `
+    appContainer.innerHTML = `
             <div class="card h-full p-6 flex flex-col gap-4">
                 <div class="stat-label border-b border-[#333] pb-4 text-red-400">Active Incident Log</div>
                 <div class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 pb-10">
@@ -667,13 +818,13 @@ function renderApp() {
                         ? '<div class="text-sm text-gray-500 text-center mt-10">No Incidents Logged</div>'
                         : state.alerts
                             .map(
-                              (a) => `
-                        <div class="p-4 border border-[#333] ${a.type === 'CRITICAL' ? 'border-l-red-500 bg-[rgba(239,68,68,0.05)]' : a.type === 'INFO' ? 'border-l-blue-500 bg-[rgba(59,130,246,0.05)]' : 'border-l-yellow-500 bg-[rgba(0,0,0,0.3)]'} rounded-lg flex justify-between items-center cursor-pointer hover:bg-[rgba(255,255,255,0.05)]" onclick="setPriority('${a.sid}')">
+                              (alertItem) => `
+                        <div class="p-4 border border-[#333] ${alertItem.type === 'CRITICAL' ? 'border-l-red-500 bg-[rgba(239,68,68,0.05)]' : alertItem.type === 'INFO' ? 'border-l-blue-500 bg-[rgba(59,130,246,0.05)]' : 'border-l-yellow-500 bg-[rgba(0,0,0,0.3)]'} rounded-lg flex justify-between items-center cursor-pointer hover:bg-[rgba(255,255,255,0.05)]" onclick="setPriority('${alertItem.sid}')">
                             <div class="flex flex-col gap-1">
-                                <span class="text-[10px] font-bold ${a.type === 'CRITICAL' ? 'text-red-400' : a.type === 'INFO' ? 'text-blue-400' : 'text-yellow-400'} uppercase">${STADIUMS[a.sid].name}</span>
-                                <span class="text-sm text-gray-200">${a.msg}</span>
+                                <span class="text-[10px] font-bold ${alertItem.type === 'CRITICAL' ? 'text-red-400' : alertItem.type === 'INFO' ? 'text-blue-400' : 'text-yellow-400'} uppercase">${STADIUMS[alertItem.sid].name}</span>
+                                <span class="text-sm text-gray-200">${alertItem.msg}</span>
                             </div>
-                            <span class="text-[10px] text-gray-500">${a.time}</span>
+                            <span class="text-[10px] text-gray-500">${alertItem.time}</span>
                         </div>
                     `,
                             )
@@ -685,23 +836,23 @@ function renderApp() {
     if (!chatHistory[state.priorityId]) {
       chatHistory[state.priorityId] = [];
     }
-    const msgs = chatHistory[state.priorityId];
-    container.innerHTML = `
+    const chatHistoryMessages = chatHistory[state.priorityId];
+    appContainer.innerHTML = `
             <div class="flex flex-col h-full card overflow-hidden">
                 <div class="flex items-center justify-between p-4 border-b border-[#333] bg-[rgba(59,130,246,0.05)]">
                     <div class="flex items-center gap-3">
                         <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                         <span class="text-sm font-bold text-white">CrowdSense ✦ Gemini 2.5 Flash — AI Command</span>
                     </div>
-                    <span class="text-[10px] font-mono text-blue-400 uppercase tracking-widest">Target: ${pStadium.name} • ${Math.floor(pStadium.occ)}% Density • ${pStadium.mood}</span>
+                    <span class="text-[10px] font-mono text-blue-400 uppercase tracking-widest">Target: ${priorityStadiumData.name} • ${Math.floor(priorityStadiumData.occ)}% Density • ${priorityStadiumData.mood}</span>
                                  <div id="chat-messages" class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4" aria-live="polite" aria-relevant="additions">
                     ${
-                      msgs.length === 0
+                      chatHistoryMessages.length === 0
                         ? `
                          <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
                              <div class="text-5xl" aria-hidden="true">🎯</div>
                              <div class="text-white font-bold text-lg">Gemini 2.5 Flash Active</div>
-                             <div class="text-gray-400 text-sm max-w-sm">Ask me anything about crowd safety, evacuation routes, threat assessment, or tactical recommendations for ${pStadium.name}.</div>
+                             <div class="text-gray-400 text-sm max-w-sm">Ask me anything about crowd safety, evacuation routes, threat assessment, or tactical recommendations for ${priorityStadiumData.name}.</div>
                              <div class="flex flex-wrap gap-2 justify-center mt-2">
                                  ${[
                                    'What is the current threat level?',
@@ -710,24 +861,24 @@ function renderApp() {
                                    'Any bottleneck risks?',
                                  ]
                                    .map(
-                                     (q) => `
-                                     <button class="text-xs px-3 py-1.5 border border-blue-500/30 text-blue-300 rounded-full hover:bg-blue-500/10 transition-colors focus:ring-1 focus:ring-white outline-none" onclick="askGemini('${q}')" aria-label="Ask: ${q}">${q}</button>
+                                     (suggestionQuery) => `
+                                     <button class="text-xs px-3 py-1.5 border border-blue-500/30 text-blue-300 rounded-full hover:bg-blue-500/10 transition-colors focus:ring-1 focus:ring-white outline-none" onclick="askGemini('${suggestionQuery}')" aria-label="Ask: ${suggestionQuery}">${suggestionQuery}</button>
                                  `,
                                    )
                                    .join('')}
                              </div>
                          </div>`
-                        : msgs
+                        : chatHistoryMessages
                             .map(
-                              (m) => `
-                             <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
+                              (messageItem) => `
+                             <div class="flex ${messageItem.role === 'user' ? 'justify-end' : 'justify-start'}">
                                  <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose ${
-                                   m.role === 'user'
+                                   messageItem.role === 'user'
                                      ? 'bg-blue-500/20 border border-blue-500/30 text-white rounded-br-sm'
                                      : 'bg-[rgba(255,255,255,0.04)] border border-[#333] text-gray-200 rounded-bl-sm'
                                  }">
-                                     ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Tactical AI</div>' : ''}
-                                     ${m.role === 'ai' ? marked.parse(m.text) : m.text.replace(/\n/g, '<br/>')}
+                                     ${messageItem.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Tactical AI</div>' : ''}
+                                     ${messageItem.role === 'ai' ? marked.parse(messageItem.text) : messageItem.text.replace(/\n/g, '<br/>')}
                                  </div>
                              </div>
                          `,
@@ -747,7 +898,7 @@ function renderApp() {
                              class="flex-1 bg-transparent border border-[#333] rounded-full px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
                              aria-label="Tactical AI Query Input"
                              onkeydown="if(event.key==='Enter') { askGemini(this.value); this.value=''; }">
-                         <button onclick="const inp=document.getElementById('chat-input'); askGemini(inp.value); inp.value='';"
+                         <button onclick="const chatInputElement=document.getElementById('chat-input'); askGemini(chatInputElement.value); chatInputElement.value='';"
                              class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-colors flex items-center gap-2"
                              aria-label="Send Query">
                              <i data-lucide="send" class="w-4 h-4" aria-hidden="true"></i> Send
@@ -760,7 +911,7 @@ function renderApp() {
   lucide.createIcons();
 
   // [Google Maps JS SDK] Interactive Rendering
-  if (state.tab === 'map' && pStadium) {
+  if (state.tab === 'map' && priorityStadiumData) {
     setTimeout(() => {
       const mapDiv = document.getElementById('google-map');
       if (mapDiv) {
@@ -778,9 +929,9 @@ function renderApp() {
             destination: '18.9379, 72.8248', // Safe Zone
             travelMode: 'WALKING',
           },
-          (res, status) => {
+          (fetchResponse, status) => {
             if (status === 'OK') {
-              directionsRenderer.setDirections(res);
+              directionsRenderer.setDirections(fetchResponse);
             }
           },
         );
@@ -789,105 +940,132 @@ function renderApp() {
   }
 }
 
+/**
+ * Updates all map markers and sidebar sector stats with the latest occupancy data.
+ */
 function updateMapMarkers() {
-  const pStadium = STADIUMS[state.priorityId];
-  if (!pStadium) {
+  const priorityStadiumData = STADIUMS[state.priorityId];
+  if (!priorityStadiumData) {
     return;
   }
-  pStadium.sectors.forEach((sec, i) => {
-    const markerEl = document.getElementById(`marker-${i}`);
-    if (markerEl) {
-      markerEl.innerHTML = `
+  priorityStadiumData.sectors.forEach((sectorData, index) => {
+    const markerElement = document.getElementById(`marker-${index}`);
+    if (markerElement) {
+      markerElement.innerHTML = `
                 <div class="relative flex flex-col items-center justify-center pointer-events-none">
-                    <div class="w-14 h-14 rounded-full border border-dashed ${sec.d > 85 ? 'border-red-500 animate-[spin_3s_linear_infinite]' : 'border-green-500/50 animate-[spin_10s_linear_infinite]'} opacity-80 absolute pointer-events-none"></div>
-                    <div class="w-3 h-3 rounded-full ${sec.d > 85 ? 'bg-red-500 shadow-[0_0_25px_#ef4444]' : 'bg-green-500 shadow-[0_0_15px_#10b981]'} relative z-10 border-2 border-black pointer-events-none"></div>
-                    <div class="mt-4 bg-[#0a0a0a]/90 backdrop-blur-md border ${sec.d > 85 ? 'border-red-500/50' : 'border-[#333]'} px-3 py-1.5 rounded-lg text-center shadow-2xl pointer-events-none transition-colors">
-                        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 pointer-events-none">${sec.n}</div>
-                        <div class="text-[13px] font-black ${sec.d > 85 ? 'text-red-400' : 'text-white'} pointer-events-none" aria-live="polite">${Math.floor(sec.d)}% DENSITY</div>
+                    <div class="w-14 h-14 rounded-full border border-dashed ${
+                      sectorData.d > 85
+                        ? 'border-red-500 animate-[spin_3s_linear_infinite]'
+                        : 'border-green-500/50 animate-[spin_10s_linear_infinite]'
+                    } opacity-80 absolute pointer-events-none"></div>
+                    <div class="w-3 h-3 rounded-full ${
+                      sectorData.d > 85
+                        ? 'bg-red-500 shadow-[0_0_25px_#ef4444]'
+                        : 'bg-green-500 shadow-[0_0_15px_#10b981]'
+                    } relative z-10 border-2 border-black pointer-events-none"></div>
+                    <div class="mt-4 bg-[#0a0a0a]/90 backdrop-blur-md border ${
+                      sectorData.d > 85 ? 'border-red-500/50' : 'border-[#333]'
+                    } px-3 py-1.5 rounded-lg text-center shadow-2xl pointer-events-none transition-colors">
+                        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 pointer-events-none">${
+                          sectorData.n
+                        }</div>
+                        <div class="text-[13px] font-black ${
+                          sectorData.d > 85 ? 'text-red-400' : 'text-white'
+                        } pointer-events-none" aria-live="polite">${Math.floor(
+                          sectorData.d,
+                        )}% DENSITY</div>
                     </div>
                 </div>`;
     }
-    const sideEl = document.getElementById(`side-sec-${i}`);
-    if (sideEl) {
-      sideEl.innerHTML = `
-                <span class="stat-label truncate">${sec.n}</span>
-                <span class="text-sm font-bold ${sec.d > 85 ? 'text-red-400' : 'text-white'}">${Math.floor(sec.d)}%</span>
+    const sidebarSectorElement = document.getElementById(`side-sec-${index}`);
+    if (sidebarSectorElement) {
+      sidebarSectorElement.innerHTML = `
+                <span class="stat-label truncate">${sectorData.n}</span>
+                <span class="text-sm font-bold ${
+                  sectorData.d > 85 ? 'text-red-400' : 'text-white'
+                }">${Math.floor(sectorData.d)}%</span>
             `;
     }
   });
 }
 
-async function askGemini(message) {
-  if (!message || !message.trim() || !state.priorityId) {
+/**
+ * Dispatches a tactical query to the Gemini AI backend and streams the response.
+ * @async
+ * @param {string} userMessage - The query text.
+ * @listens DOM.onkeydown
+ */
+async function askGemini(userMessage) {
+  if (!userMessage || !userMessage.trim() || !state.priorityId) {
     return;
   }
-  const s = STADIUMS[state.priorityId];
-  if (!s) {
+  const stadiumData = STADIUMS[state.priorityId];
+  if (!stadiumData) {
     return;
   }
 
   if (!chatHistory[state.priorityId]) {
     chatHistory[state.priorityId] = [];
   }
-  chatHistory[state.priorityId].push({ role: 'user', text: message.trim() });
+  chatHistory[state.priorityId].push({ role: 'user', text: userMessage.trim() });
   renderApp();
 
-  const typingEl = document.getElementById('ai-typing-indicator');
-  const streamEl = document.getElementById('ai-stream-output');
-  if (typingEl) {
-    typingEl.classList.remove('hidden');
-    typingEl.classList.add('flex');
+  const typingIndicatorElement = document.getElementById('ai-typing-indicator');
+  const streamOutputElement = document.getElementById('ai-stream-output');
+  if (typingIndicatorElement) {
+    typingIndicatorElement.classList.remove('hidden');
+    typingIndicatorElement.classList.add('flex');
   }
 
-  let fullResponse = '';
+  let fullAiResponse = '';
 
   try {
-    const res = await fetch('/api/ai-chat', {
+    const fetchResponse = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: message.trim(),
-        venue: s.name,
-        density: Math.floor(s.occ),
-        mood: s.mood,
+        message: userMessage.trim(),
+        venue: stadiumData.name,
+        density: Math.floor(stadiumData.occ),
+        mood: stadiumData.mood,
       }),
     });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData?.error || `Server error ${res.status}`);
+    if (!fetchResponse.ok) {
+      const errorData = await fetchResponse.json().catch(() => ({}));
+      throw new Error(errorData?.error || `Server error ${fetchResponse.status}`);
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
+    const streamReader = fetchResponse.body.getReader();
+    const textDecoder = new TextDecoder();
+    let streamBuffer = '';
 
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await streamReader.read();
       if (done) {
         break;
       }
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop();
-      for (const part of parts) {
-        for (const line of part.split('\n')) {
-          if (!line.startsWith('data: ')) {
+      streamBuffer += textDecoder.decode(value, { stream: true });
+      const streamParts = streamBuffer.split('\n\n');
+      streamBuffer = streamParts.pop();
+      for (const streamPart of streamParts) {
+        for (const streamLine of streamPart.split('\n')) {
+          if (!streamLine.startsWith('data: ')) {
             continue;
           }
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') {
+          const rawJsonData = streamLine.slice(6).trim();
+          if (rawJsonData === '[DONE]') {
             continue;
           }
           try {
-            const parsed = JSON.parse(raw);
-            if (parsed.text) {
-              fullResponse += parsed.text;
-              if (streamEl) {
-                streamEl.innerHTML = marked.parse(fullResponse);
+            const parsedEventData = JSON.parse(rawJsonData);
+            if (parsedEventData.text) {
+              fullAiResponse += parsedEventData.text;
+              if (streamOutputElement) {
+                streamOutputElement.innerHTML = marked.parse(fullAiResponse);
               }
-            } else if (parsed.error) {
-              throw new Error(parsed.error);
+            } else if (parsedEventData.error) {
+              throw new Error(parsedEventData.error);
             }
           } catch (_) {
             // Ignore parse errors
@@ -896,21 +1074,21 @@ async function askGemini(message) {
       }
     }
 
-    if (!fullResponse) {
-      fullResponse = '⚠️ No response from AI. Please try again.';
+    if (!fullAiResponse) {
+      fullAiResponse = '⚠️ No response from AI. Please try again.';
     }
-  } catch (err) {
-    fullResponse = `⚠️ AI Error: ${err.message}`;
-    if (streamEl) {
-      streamEl.innerHTML = fullResponse;
+  } catch (error) {
+    fullAiResponse = `⚠️ AI Error: ${error.message}`;
+    if (streamOutputElement) {
+      streamOutputElement.innerHTML = fullAiResponse;
     }
   }
 
-  chatHistory[state.priorityId].push({ role: 'ai', text: fullResponse });
+  chatHistory[state.priorityId].push({ role: 'ai', text: fullAiResponse });
   renderApp();
-  const chatEl = document.getElementById('chat-messages');
-  if (chatEl) {
-    chatEl.scrollTop = chatEl.scrollHeight;
+  const chatMessagesElement = document.getElementById('chat-messages');
+  if (chatMessagesElement) {
+    chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
   }
 }
 

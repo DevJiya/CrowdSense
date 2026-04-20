@@ -1,3 +1,14 @@
+/**
+ * @module ApiRoutes
+ * @description Centralized routing for all CrowdSense API endpoints.
+ * Includes tactical AI chat, analytics logging, telemetry synchronization, and file uploads.
+ * @requires express
+ * @requires multer
+ * @requires AiController
+ * @requires SecurityMiddleware
+ * @requires GoogleServices
+ */
+
 import express from 'express';
 import multer from 'multer';
 
@@ -9,53 +20,77 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 /**
- * Auth Middleware (Mocked for Demo)
+ * Auth Middleware (Mocked for Demo).
+ * @param {Object} httpRequest - Express request object.
+ * @param {Object} httpResponse - Express response object.
+ * @param {Function} next - Express next middleware function.
  */
-const authenticate = (req, res, next) => {
+const authenticate = (httpRequest, httpResponse, next) => {
   // In production, verify Firebase ID Token
   next();
 };
 
 // ─── TACTICAL AI ENDPOINTS ──────────────────────────────────────────
+/**
+ * POST /api/ai-chat
+ * Handles tactical AI narrations with rate limiting and input validation.
+ */
 router.post('/ai-chat', SecurityMiddleware.aiRateLimit, AiChatValidator, AiController.handleChat);
 
 // ─── ANALYTICS ENDPOINTS ─────────────────────────────────────────────
-router.post('/analytics', SecurityMiddleware.globalRateLimit, authenticate, async (req, res) => {
-  const { event, metadata } = req.body;
-  await GoogleServices.logEvent(event, metadata);
-  return res.json({ status: 'logged' });
-});
+/**
+ * POST /api/analytics
+ * Logs general analytics events to the cloud.
+ */
+router.post(
+  '/analytics',
+  SecurityMiddleware.globalRateLimit,
+  authenticate,
+  async (httpRequest, httpResponse) => {
+    const { analyticsEventName, metadata } = httpRequest.body;
+    await GoogleServices.logEvent(analyticsEventName, metadata);
+    return httpResponse.json({ status: 'logged' });
+  },
+);
 
 // ─── TELEMETRY ENDPOINTS ─────────────────────────────────────────────
+/**
+ * POST /api/telemetry/sync
+ * Synchronizes real-time sensor telemetry with the RTDB.
+ */
 router.post(
   '/telemetry/sync',
   SecurityMiddleware.globalRateLimit,
   authenticate,
-  async (req, res) => {
-    const { stadiumId, data } = req.body;
-    await GoogleServices.updateTelemetry(stadiumId, data);
-    return res.json({ status: 'synced' });
+  async (httpRequest, httpResponse) => {
+    const { stadiumId, telemetryPayload } = httpRequest.body;
+    await GoogleServices.updateTelemetry(stadiumId, telemetryPayload);
+    return httpResponse.json({ status: 'synced' });
   },
 );
 
 // ─── STORAGE ENDPOINTS ───────────────────────────────────────────────
+/**
+ * POST /api/upload
+ * Uploads media files (e.g., incident photos) to Google Cloud Storage.
+ */
 router.post(
   '/upload',
   SecurityMiddleware.globalRateLimit,
   authenticate,
   upload.single('file'),
-  async (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file' });
+  async (httpRequest, httpResponse) => {
+    if (!httpRequest.file) {
+      return httpResponse.status(400).json({ error: 'No file' });
     }
     try {
-      const url = await GoogleServices.uploadFile(
-        req.file.buffer,
-        `uploads/${Date.now()}-${req.file.originalname}`,
+      const uploadedFileUrl = await GoogleServices.uploadFile(
+        httpRequest.file.buffer,
+        `uploads/${Date.now()}-${httpRequest.file.originalname}`,
       );
-      return res.json({ url });
+      return httpResponse.json({ url: uploadedFileUrl });
     } catch {
-      return res.status(500).json({ error: 'Upload failed' });
+      return httpResponse.status(500).json({ error: 'Upload failed' });
     }
   },
 );

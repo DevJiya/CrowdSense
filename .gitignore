@@ -11,3 +11,5 @@ build/
 .env*
 credentials.json
 firebase-config.js
+docs/
+coverage/
