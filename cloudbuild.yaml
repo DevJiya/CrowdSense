@@ -1,0 +1,35 @@
+steps:
+  # 1. Build the production container
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/crowdsense', '.']
+
+  # 2. Push to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/crowdsense']
+
+  # 3. Deploy to Cloud Run with Auto-scaling (0-10)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'crowdsense'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/crowdsense'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '10'
+      - '--memory'
+      - '512Mi'
+
+images:
+  - 'gcr.io/$PROJECT_ID/crowdsense'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
