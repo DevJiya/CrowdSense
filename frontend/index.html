@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrowdSense AI | Tactical Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/marked@12.0.0/marked.min.js"></script>
+    <!-- Google & Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places,geometry"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        :root { --bg: #0a0a0a; --card: rgba(31,31,31,0.4); --border: #333; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: #fff; margin: 0; overflow: hidden; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* RESTORED MINI-NAVBAR CSS */
+        .mini-navbar { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; align-items: center; padding: 12px 24px; backdrop-filter: blur(8px); background-color: rgba(31, 31, 31, 0.34); border: 1px solid #333; border-radius: 999px; transition: border-radius 0.3s ease-in-out; }
+        .nav-link-container { position: relative; display: flex; align-items: center; font-size: 13px; font-weight: 700; cursor: pointer; color: #a1a1aa; transition: color 0.2s; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 0; }
+        .nav-link-container:hover { color: #ffffff; }
+        .active-dot { position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #fff; border-radius: 50%; }
+
+        /* CARDS */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; backdrop-filter: blur(10px); }
+        .stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; }
+        
+        /* MAP */
+        .map-wrapper { position: relative; width: 100%; height: 100%; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+        .sector-node { position: absolute; padding: 6px 12px; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); border: 1px solid #333; border-radius: 999px; transform: translate(-50%, -50%); font-size: 10px; font-weight: 700; color: white; display: flex; align-items: center; gap: 6px; pointer-events: auto; white-space: nowrap; }
+        
+        /* ALERTS */
+        .toast { background: rgba(10,10,10,0.95); border: 1px solid var(--border); border-left: 4px solid #3B82F6; padding: 16px; border-radius: 12px; width: 340px; animation: slideIn 0.4s forwards; }
+        .toast.critical { border-left-color: #EF4444; }
+        @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
+        
+        /* DETECTOR GRID */
+        .pulse-ring { position: relative; width: 12px; height: 12px; }
+        .pulse-ring::before { content: ''; position: absolute; inset: 0; background: #10B981; border-radius: 50%; }
+        .pulse-ring::after { content: ''; position: absolute; inset: -4px; border: 1px solid #10B981; border-radius: 50%; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        .pulse-ring.red::before { background: #EF4444; }
+        .pulse-ring.red::after { border-color: #EF4444; }
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+
+        /* LIVE TERMINAL EFFECT */
+        .terminal-cursor::after { content: '█'; animation: blink 1s step-start infinite; color: #3B82F6; margin-left: 4px; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* MARKDOWN STYLES */
+        .prose p { margin-bottom: 0.5rem; }
+        .prose p:last-child { margin-bottom: 0; }
+        .prose strong { color: #60A5FA; font-weight: 700; }
+        .prose ul { list-style-type: disc; margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .prose li { margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="flex flex-col h-screen relative">
+
+    <div class="absolute inset-0 z-0 opacity-20 pointer-events-none" aria-hidden="true">
+        <img class="w-full h-full object-cover grayscale" src="https://cdn.pixabay.com/photo/2016/06/05/07/59/stars-1436950_1280.jpg" alt="">
+    </div>
+
+    <!-- MINI-NAVBAR -->
+    <header class="mini-navbar" role="banner">
+        <div class="flex items-center justify-between w-full gap-x-8">
+            <div class="relative w-5 h-5 flex items-center justify-center" aria-hidden="true">
+                <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 top-0 left-1/2 transform -translate-x-1/2 opacity-80"></span>
+                <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 left-0 top-1/2 transform -translate-y-1/2 opacity-80"></span>
+                <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 right-0 top-1/2 transform -translate-y-1/2 opacity-80"></span>
+                <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 bottom-0 left-1/2 transform -translate-x-1/2 opacity-80"></span>
+            </div>
+            <nav class="hidden sm:flex items-center space-x-8 text-sm" id="nav-links" aria-label="Main Navigation"></nav>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleViewMode()" class="px-4 py-1.5 border border-blue-500/30 text-blue-300 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-500/10 transition-all">
+                    Mode: <span id="view-mode-label">Tactical</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden z-10 pt-24 px-6 pb-6 gap-6 max-w-[1600px] mx-auto w-full">
+        <!-- GLOBAL TARGET SIDEBAR -->
+        <aside class="w-72 flex flex-col gap-4 shrink-0" aria-label="Target Selection Sidebar">
+            <section class="card p-4" aria-label="Search">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" aria-hidden="true"></i>
+                    <input type="text" id="global-search" placeholder="Search to Track..." class="w-full bg-transparent border border-[#333] rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:border-white transition-all text-white placeholder-gray-500" onkeydown="if(event.key==='Enter') handleSearch(this.value)" aria-label="Search stadium to track">
+                </div>
+            </section>
+            
+            <section class="card p-4 flex flex-col gap-3" aria-label="System Health">
+                <h2 class="stat-label border-b border-[#333] pb-2">System Diagnostics</h2>
+                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Global Sensors</span><span id="global-sensor-status" class="text-green-400 font-bold" aria-live="polite">96% Online</span></div>
+                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Drone Uplink</span><span class="text-blue-400 font-bold">SECURE</span></div>
+                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Threat Level</span><span id="global-threat" class="text-yellow-400 font-bold" aria-live="polite">ELEVATED</span></div>
+            </section>
+            
+            <nav class="card flex-1 flex flex-col overflow-hidden" aria-label="Tracked Stadiums">
+                <div class="p-4 border-b border-[#333] bg-[#1f1f1f57]">
+                    <h2 class="stat-label">Priority Target</h2>
+                    <div class="text-base font-bold text-white mt-1 truncate" id="priority-target-name" aria-live="polite">None</div>
+                </div>
+                <div id="target-list" class="flex-1 overflow-y-auto no-scrollbar p-3 flex flex-col gap-2" role="list"></div>
+            </nav>
+        </aside>
+
+        <!-- DYNAMIC CONTENT AREA -->
+        <main class="flex-1 overflow-hidden" id="app-container" role="main" aria-label="Main Content Area"></main>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[3000] flex flex-col gap-3 pointer-events-none" aria-live="assertive" aria-atomic="true"></div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
