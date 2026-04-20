@@ -9,12 +9,12 @@
  * @requires dotenv
  */
 
-/* eslint-disable no-console */
 import { BigQuery } from '@google-cloud/bigquery';
 import { Storage } from '@google-cloud/storage';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 
+import { logger } from '../config/logger.js';
 import { AppError } from '../errors/AppError.js';
 import { ErrorCodes } from '../errors/ErrorCodes.js';
 
@@ -24,7 +24,7 @@ dotenv.config();
 const MOCK_MODE = process.env.MOCK_MODE === 'true' || !process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
 if (MOCK_MODE) {
-  console.warn('⚠️ [Google Cloud] Running in OFFLINE MOCK MODE. No live cloud writes will occur.');
+  logger.warn('Running in OFFLINE MOCK MODE. No live cloud writes will occur.');
 }
 
 // Initialize Firebase Admin
@@ -35,7 +35,7 @@ if (!admin.apps.length && !MOCK_MODE) {
       databaseURL: process.env.FIREBASE_DATABASE_URL,
     });
   } catch (initError) {
-    console.error('Firebase Init Failed', initError.message);
+    logger.error('Firebase Init Failed', { message: initError.message });
   }
 }
 
@@ -60,7 +60,7 @@ export const GoogleServices = {
    */
   async logEvent(eventType, eventMetadata) {
     if (MOCK_MODE) {
-      console.log(`[MOCK BigQuery] Event: ${eventType}`, eventMetadata);
+      logger.debug(`[MOCK BigQuery] Event: ${eventType}`, { eventMetadata });
       return;
     }
     try {
@@ -72,7 +72,7 @@ export const GoogleServices = {
         ...eventMetadata,
       };
       await bigQueryClient.dataset(datasetId).table(tableId).insert([row]);
-      console.log(`[BigQuery] Logged ${eventType}`);
+      logger.info(`[BigQuery] Logged ${eventType}`);
     } catch (error) {
       throw new AppError(
         'Failed to log event to BigQuery',
@@ -97,7 +97,7 @@ export const GoogleServices = {
    */
   async updateTelemetry(stadiumId, telemetryPayload) {
     if (MOCK_MODE || !firebaseDatabase) {
-      console.log(`[MOCK RTDB] Telemetry for ${stadiumId}:`, telemetryPayload);
+      logger.debug(`[MOCK RTDB] Telemetry for ${stadiumId}:`, { telemetryPayload });
       return;
     }
     try {
@@ -133,7 +133,7 @@ export const GoogleServices = {
    */
   async uploadFile(fileBuffer, destinationFilename) {
     if (MOCK_MODE) {
-      console.log(`[MOCK GCS] Uploaded ${destinationFilename}`);
+      logger.debug(`[MOCK GCS] Uploaded ${destinationFilename}`);
       return `https://mock-storage.googleapis.com/${destinationFilename}`;
     }
     try {

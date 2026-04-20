@@ -3,7 +3,8 @@
  * @description Centralized Express error handling middleware.
  */
 
-/* eslint-disable no-console */
+import { logger } from '../config/logger.js';
+
 import { ErrorCodes } from './ErrorCodes.js';
 
 /**
@@ -21,13 +22,15 @@ export const errorHandler = (error, httpRequest, httpResponse, _next) => {
 
   // Log non-operational errors as FATAL
   if (!error.isOperational) {
-    console.error(`[FATAL ERROR] [ReqID: ${requestId}]`, {
+    logger.error('CRITICAL SYSTEM ERROR', {
+      requestId,
       message: error.message,
       stack: error.stack,
-      context: error.context,
     });
   } else {
-    console.warn(`[OPERATIONAL ERROR] [ReqID: ${requestId}] [Code: ${errorCode}]`, {
+    logger.warn('OPERATIONAL ERROR', {
+      requestId,
+      errorCode,
       message: error.message,
       context: error.context,
     });

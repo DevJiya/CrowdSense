@@ -5,16 +5,14 @@
  * @requires app
  */
 
-/* eslint-disable no-console */
 import app from './app.js';
+import { logger } from './config/logger.js';
 
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`
-    🚀 CrowdSense AI — Tactical Intel Grid Active
-    🛡️  Security: Hardened (Helmet + Rate Limits)
-    🛰️  Nodes: Online
-    🌐  Endpoint: http://localhost:${PORT}
-    `);
+  logger.info(`CrowdSense API v2.0.0 is live on port ${PORT}`, {
+    env: process.env.NODE_ENV,
+    docs: `http://localhost:${PORT}/docs`,
+  });
 });

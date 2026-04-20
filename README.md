@@ -60,6 +60,8 @@ CrowdSense natively integrates the full Google Cloud ecosystem:
 ## 🔒 6. Security & Efficiency
 -   **Hardened Headers**: Full `helmet.js` implementation with custom Content Security Policy (CSP).
 -   **Tiered Rate Limiting**: Separate limits for global API traffic and heavy AI generation to prevent DDoS and cost spikes.
+-   **Deterministic Builds**: The `package-lock.json` is strictly version-controlled to ensure every environment uses the exact same dependency tree.
+-   **Strict Dependency Pinning**: Dependencies are pinned to exact versions to prevent unintended updates.
 -   **Input Sanitization**: Strict `express-validator` schemas for all incoming tactical queries.
 -   **Benchmark Performance**: All non-AI computation (pathfinding, analytics) is optimized to respond in **< 500ms**.
 

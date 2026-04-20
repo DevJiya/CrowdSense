@@ -13,8 +13,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import 'dotenv/config';
+import compression from 'compression';
 import express from 'express';
+import helmet from 'helmet';
+import morgan from 'morgan';
 
+import { logger } from './config/logger.js';
 import { errorHandler } from './errors/errorHandler.middleware.js';
 import { SecurityMiddleware } from './middleware/index.js';
 import { apiRoutes } from './routes/index.js';
@@ -24,21 +28,22 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// ─── PRODUCTION HARDENING ───────────────────────────────────────────
+app.use(helmet()); // Basic security headers
+app.use(compression()); // Gzip compression
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP logging
+
 // ─── PROCESS HANDLERS ───────────────────────────────────────────────
-/* eslint-disable no-console */
 process.on('unhandledRejection', (reason) => {
-  console.error('[FATAL] Unhandled Rejection:', reason);
-  // In a production environment, we might want to gracefully shutdown
-  // server.close(() => process.exit(1));
+  logger.error('[FATAL] Unhandled Rejection:', { reason });
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('[FATAL] Uncaught Exception:', error);
+  logger.error('[FATAL] Uncaught Exception:', { error: error.message, stack: error.stack });
   process.exit(1);
 });
 
 // ─── GLOBAL MIDDLEWARE ──────────────────────────────────────────────
-app.use(SecurityMiddleware.helmet);
 app.use(SecurityMiddleware.globalRateLimit);
 app.use(express.json({ limit: '1mb' }));
 

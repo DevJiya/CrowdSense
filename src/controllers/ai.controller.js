@@ -7,7 +7,7 @@
  * @requires GoogleServices
  */
 
-/* eslint-disable no-console */
+import { logger } from '../config/logger.js';
 import { GeminiService, CrowdAnalyticsService, GoogleServices } from '../services/index.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
@@ -29,7 +29,7 @@ export const AiController = {
     await GoogleServices.logEvent('AI_QUERY', { venue, risk: bottleneckAnalysis.overall_risk });
 
     const computeTime = Date.now() - benchStartTime;
-    console.log(`[Benchmark] Analytics computed in ${computeTime}ms`);
+    logger.info('Tactical AI analytics computed', { computeTime: `${computeTime}ms` });
 
     // 3. NARRATE VIA AI (Narration)
     await GeminiService.streamNarration({ message, analysis: bottleneckAnalysis }, httpResponse);
