@@ -55,55 +55,54 @@
 </head>
 <body class="flex flex-col h-screen relative">
 
-    <div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
-        <img class="w-full h-full object-cover grayscale" src="https://cdn.pixabay.com/photo/2016/06/05/07/59/stars-1436950_1280.jpg" alt="Background Stars">
+    <div class="absolute inset-0 z-0 opacity-20 pointer-events-none" aria-hidden="true">
+        <img class="w-full h-full object-cover grayscale" src="https://cdn.pixabay.com/photo/2016/06/05/07/59/stars-1436950_1280.jpg" alt="">
     </div>
 
     <!-- MINI-NAVBAR -->
-    <header class="mini-navbar">
+    <header class="mini-navbar" role="banner">
         <div class="flex items-center justify-between w-full gap-x-8">
-            <div class="relative w-5 h-5 flex items-center justify-center">
+            <div class="relative w-5 h-5 flex items-center justify-center" aria-hidden="true">
                 <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 top-0 left-1/2 transform -translate-x-1/2 opacity-80"></span>
                 <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 left-0 top-1/2 transform -translate-y-1/2 opacity-80"></span>
                 <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 right-0 top-1/2 transform -translate-y-1/2 opacity-80"></span>
                 <span class="absolute w-1.5 h-1.5 rounded-full bg-gray-200 bottom-0 left-1/2 transform -translate-x-1/2 opacity-80"></span>
             </div>
-            <nav class="hidden sm:flex items-center space-x-8 text-sm" id="nav-links"></nav>
-            <!-- Login/Signup buttons removed per request -->
+            <nav class="hidden sm:flex items-center space-x-8 text-sm" id="nav-links" aria-label="Main Navigation"></nav>
         </div>
     </header>
 
     <div class="flex-1 flex overflow-hidden z-10 pt-24 px-6 pb-6 gap-6 max-w-[1600px] mx-auto w-full">
         <!-- GLOBAL TARGET SIDEBAR -->
-        <aside class="w-72 flex flex-col gap-4 shrink-0">
-            <div class="card p-4">
+        <aside class="w-72 flex flex-col gap-4 shrink-0" aria-label="Target Selection Sidebar">
+            <section class="card p-4" aria-label="Search">
                 <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"></i>
-                    <input type="text" id="global-search" placeholder="Search to Track..." class="w-full bg-transparent border border-[#333] rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:border-white transition-all text-white placeholder-gray-500" onkeydown="if(event.key==='Enter') handleSearch(this.value)">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" aria-hidden="true"></i>
+                    <input type="text" id="global-search" placeholder="Search to Track..." class="w-full bg-transparent border border-[#333] rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:border-white transition-all text-white placeholder-gray-500" onkeydown="if(event.key==='Enter') handleSearch(this.value)" aria-label="Search stadium to track">
                 </div>
-            </div>
+            </section>
             
-            <div class="card p-4 flex flex-col gap-3">
-                <div class="stat-label border-b border-[#333] pb-2">System Diagnostics</div>
-                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Global Sensors</span><span id="global-sensor-status" class="text-green-400 font-bold">96% Online</span></div>
+            <section class="card p-4 flex flex-col gap-3" aria-label="System Health">
+                <h2 class="stat-label border-b border-[#333] pb-2">System Diagnostics</h2>
+                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Global Sensors</span><span id="global-sensor-status" class="text-green-400 font-bold" aria-live="polite">96% Online</span></div>
                 <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Drone Uplink</span><span class="text-blue-400 font-bold">SECURE</span></div>
-                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Threat Level</span><span id="global-threat" class="text-yellow-400 font-bold">ELEVATED</span></div>
-            </div>
-
-            <div class="card flex-1 flex flex-col overflow-hidden">
+                <div class="flex justify-between items-center text-xs"><span class="text-gray-400">Threat Level</span><span id="global-threat" class="text-yellow-400 font-bold" aria-live="polite">ELEVATED</span></div>
+            </section>
+            
+            <nav class="card flex-1 flex flex-col overflow-hidden" aria-label="Tracked Stadiums">
                 <div class="p-4 border-b border-[#333] bg-[#1f1f1f57]">
-                    <div class="stat-label">Priority Target</div>
-                    <div class="text-base font-bold text-white mt-1 truncate" id="priority-target-name">None</div>
+                    <h2 class="stat-label">Priority Target</h2>
+                    <div class="text-base font-bold text-white mt-1 truncate" id="priority-target-name" aria-live="polite">None</div>
                 </div>
-                <div id="target-list" class="flex-1 overflow-y-auto no-scrollbar p-3 flex flex-col gap-2"></div>
-            </div>
+                <div id="target-list" class="flex-1 overflow-y-auto no-scrollbar p-3 flex flex-col gap-2" role="list"></div>
+            </nav>
         </aside>
 
         <!-- DYNAMIC CONTENT AREA -->
-        <main class="flex-1 overflow-hidden" id="app-container"></main>
+        <main class="flex-1 overflow-hidden" id="app-container" role="main" aria-label="Main Content Area"></main>
     </div>
 
-    <div id="toast-container" class="fixed bottom-6 right-6 z-[3000] flex flex-col gap-3 pointer-events-none"></div>
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[3000] flex flex-col gap-3 pointer-events-none" aria-live="assertive" aria-atomic="true"></div>
 
     <script>
         const STADIUMS = {};
@@ -388,10 +387,14 @@
         function renderNavbar() {
             const nav = document.getElementById('nav-links');
             nav.innerHTML = TABS.map(t => `
-                <div class="nav-link-container" style="color: ${state.tab === t.id ? '#ffffff' : '#a1a1aa'}" onclick="switchTab('${t.id}')">
+                <button class="nav-link-container outline-none focus:ring-1 focus:ring-white rounded-lg px-2" 
+                    style="color: ${state.tab === t.id ? '#ffffff' : '#a1a1aa'}" 
+                    onclick="switchTab('${t.id}')"
+                    aria-label="Switch to ${t.label} tab"
+                    aria-current="${state.tab === t.id ? 'page' : 'false'}">
                     ${t.label}
-                    ${state.tab === t.id ? '<div class="active-dot"></div>' : ''}
-                </div>
+                    ${state.tab === t.id ? '<div class="active-dot" aria-hidden="true"></div>' : ''}
+                </button>
             `).join('');
         }
 
@@ -404,13 +407,20 @@
                 const s = STADIUMS[id];
                 const isPri = id === state.priorityId;
                 return `
-                <div class="p-3 rounded-lg flex justify-between items-center cursor-pointer border ${isPri ? 'border-gray-500 bg-[rgba(255,255,255,0.05)]' : 'border-transparent hover:border-[#333]'}" onclick="setPriority('${id}')">
+                <div class="p-3 rounded-lg flex justify-between items-center cursor-pointer border ${isPri ? 'border-gray-500 bg-[rgba(255,255,255,0.05)]' : 'border-transparent hover:border-[#333]'} focus-within:ring-1 focus-within:ring-white" 
+                     onclick="setPriority('${id}')" 
+                     role="listitem"
+                     aria-selected="${isPri}"
+                     tabindex="0"
+                     onkeydown="if(event.key==='Enter') setPriority('${id}')">
                     <div class="flex flex-col overflow-hidden mr-2">
                         <span class="text-xs font-semibold text-white truncate">${s.name}</span>
                         <span class="text-[10px] ${s.occ > 80 ? 'text-red-400' : 'text-gray-400'}">${Math.floor(s.occ)}% Capacity</span>
                     </div>
-                    <button class="p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors shrink-0" onclick="removeStadium('${id}', event)">
-                        <i data-lucide="x" class="w-3 h-3"></i>
+                    <button class="p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors shrink-0" 
+                            onclick="removeStadium('${id}', event)"
+                            aria-label="Stop tracking ${s.name}">
+                        <i data-lucide="x" class="w-3 h-3" aria-hidden="true"></i>
                     </button>
                 </div>
                 `;
@@ -590,51 +600,53 @@
                                 <span class="text-sm font-bold text-white">CrowdSense ✦ Gemini 2.5 Flash — AI Command</span>
                             </div>
                             <span class="text-[10px] font-mono text-blue-400 uppercase tracking-widest">Target: ${pStadium.name} • ${Math.floor(pStadium.occ)}% Density • ${pStadium.mood}</span>
-                        </div>
-                        <div id="chat-messages" class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4">
+                                         <div id="chat-messages" class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4" aria-live="polite" aria-relevant="additions">
                             ${msgs.length === 0 ? `
-                                <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
-                                    <div class="text-5xl">🎯</div>
-                                    <div class="text-white font-bold text-lg">Gemini 2.5 Flash Active</div>
-                                    <div class="text-gray-400 text-sm max-w-sm">Ask me anything about crowd safety, evacuation routes, threat assessment, or tactical recommendations for ${pStadium.name}.</div>
-                                    <div class="flex flex-wrap gap-2 justify-center mt-2">
-                                        ${['What is the current threat level?', 'Suggest evacuation routes', 'Analyze crowd density risk', 'Any bottleneck risks?'].map(q => `
-                                            <button class="text-xs px-3 py-1.5 border border-blue-500/30 text-blue-300 rounded-full hover:bg-blue-500/10 transition-colors" onclick="askGemini('${q}')">${q}</button>
-                                        `).join('')}
-                                    </div>
-                                </div>` :
-                                msgs.map(m => `
-                                    <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
-                                        <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose ${
-                                            m.role === 'user'
-                                            ? 'bg-blue-500/20 border border-blue-500/30 text-white rounded-br-sm'
-                                            : 'bg-[rgba(255,255,255,0.04)] border border-[#333] text-gray-200 rounded-bl-sm'
-                                        }">
-                                            ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Tactical AI</div>' : ''}
-                                            ${m.role === 'ai' ? marked.parse(m.text) : m.text.replace(/\n/g, '<br/>')}
-                                        </div>
-                                    </div>
-                                `).join('')
-                            }
-                            <div id="ai-typing-indicator" class="hidden justify-start">
-                                <div class="px-4 py-3 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[#333] max-w-[80%] prose">
-                                    <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Processing...</div>
-                                    <div id="ai-stream-output" class="text-sm text-gray-200 leading-relaxed terminal-cursor"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="p-4 border-t border-[#333]">
-                            <div class="flex gap-3">
-                                <input id="chat-input" type="text" placeholder="Ask for tactical analysis, evacuation plans, crowd risk assessment..."
-                                    class="flex-1 bg-transparent border border-[#333] rounded-full px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
-                                    onkeydown="if(event.key==='Enter') { askGemini(this.value); this.value=''; }">
-                                <button onclick="const inp=document.getElementById('chat-input'); askGemini(inp.value); inp.value='';"
-                                    class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-colors flex items-center gap-2">
-                                    <i data-lucide="send" class="w-4 h-4"></i> Send
-                                </button>
-                            </div>
-                        </div>
-                    </div>`;
+                                 <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
+                                     <div class="text-5xl" aria-hidden="true">🎯</div>
+                                     <div class="text-white font-bold text-lg">Gemini 2.5 Flash Active</div>
+                                     <div class="text-gray-400 text-sm max-w-sm">Ask me anything about crowd safety, evacuation routes, threat assessment, or tactical recommendations for ${pStadium.name}.</div>
+                                     <div class="flex flex-wrap gap-2 justify-center mt-2">
+                                         ${['What is the current threat level?', 'Suggest evacuation routes', 'Analyze crowd density risk', 'Any bottleneck risks?'].map(q => `
+                                             <button class="text-xs px-3 py-1.5 border border-blue-500/30 text-blue-300 rounded-full hover:bg-blue-500/10 transition-colors focus:ring-1 focus:ring-white outline-none" onclick="askGemini('${q}')" aria-label="Ask: ${q}">${q}</button>
+                                         `).join('')}
+                                     </div>
+                                 </div>` :
+                                 msgs.map(m => `
+                                     <div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}">
+                                         <div class="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose ${
+                                             m.role === 'user'
+                                             ? 'bg-blue-500/20 border border-blue-500/30 text-white rounded-br-sm'
+                                             : 'bg-[rgba(255,255,255,0.04)] border border-[#333] text-gray-200 rounded-bl-sm'
+                                         }">
+                                             ${m.role === 'ai' ? '<div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Tactical AI</div>' : ''}
+                                             ${m.role === 'ai' ? marked.parse(m.text) : m.text.replace(/\n/g, '<br/>')}
+                                         </div>
+                                     </div>
+                                 `).join('')
+                             }
+                             <div id="ai-typing-indicator" class="hidden justify-start">
+                                 <div class="px-4 py-3 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[#333] max-w-[80%] prose">
+                                     <div class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5 not-prose">Gemini 2.5 — Processing...</div>
+                                     <div id="ai-stream-output" class="text-sm text-gray-200 leading-relaxed terminal-cursor" aria-live="polite"></div>
+                                 </div>
+                             </div>
+                         </div>
+                         <div class="p-4 border-t border-[#333]">
+                             <div class="flex gap-3">
+                                 <input id="chat-input" type="text" placeholder="Ask for tactical analysis, evacuation plans, crowd risk assessment..."
+                                     class="flex-1 bg-transparent border border-[#333] rounded-full px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500/50 transition-all"
+                                     aria-label="Tactical AI Query Input"
+                                     onkeydown="if(event.key==='Enter') { askGemini(this.value); this.value=''; }">
+                                 <button onclick="const inp=document.getElementById('chat-input'); askGemini(inp.value); inp.value='';"
+                                     class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-full transition-colors flex items-center gap-2"
+                                     aria-label="Send Query">
+                                     <i data-lucide="send" class="w-4 h-4" aria-hidden="true"></i> Send
+                                 </button>
+                             </div>
+                         </div>
+                     </div>`;
+            </div>`;
             }
             lucide.createIcons();
         }
