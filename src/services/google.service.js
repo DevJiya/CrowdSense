@@ -20,15 +20,15 @@ import { ErrorCodes } from '../errors/ErrorCodes.js';
 
 dotenv.config();
 
-/** @const {boolean} MOCK_MODE - Indicates if the service is running without live cloud credentials. */
-const MOCK_MODE = process.env.MOCK_MODE === 'true' || !process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-if (MOCK_MODE) {
-  logger.warn('Running in OFFLINE MOCK MODE. No live cloud writes will occur.');
-}
+/**
+ * Internal helper to check if the service should operate in MOCK_MODE.
+ * @returns {boolean}
+ */
+const isMockMode = () =>
+  process.env.MOCK_MODE === 'true' || !process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
 // Initialize Firebase Admin
-if (!admin.apps.length && !MOCK_MODE) {
+if (!admin.apps.length && !isMockMode()) {
   try {
     admin.initializeApp({
       credential: admin.credential.applicationDefault(),
@@ -40,13 +40,13 @@ if (!admin.apps.length && !MOCK_MODE) {
 }
 
 /** @const {BigQuery|null} bigQueryClient - Instance of BigQuery client or null in MOCK_MODE. */
-const bigQueryClient = MOCK_MODE ? null : new BigQuery();
+const bigQueryClient = isMockMode() ? null : new BigQuery();
 
 /** @const {Storage|null} googleStorageClient - Instance of Storage client or null in MOCK_MODE. */
-const googleStorageClient = MOCK_MODE ? null : new Storage();
+const googleStorageClient = isMockMode() ? null : new Storage();
 
 /** @const {admin.database.Database|null} firebaseDatabase - Instance of Firebase RTDB or null in MOCK_MODE. */
-const firebaseDatabase = MOCK_MODE || !admin.apps.length ? null : admin.database();
+const firebaseDatabase = isMockMode() || !admin.apps.length ? null : admin.database();
 
 export const GoogleServices = {
   /**
@@ -59,7 +59,7 @@ export const GoogleServices = {
    * await GoogleServices.logEvent('SECURITY_ALERT', { zone: 'North Gate', risk: 'High' });
    */
   async logEvent(eventType, eventMetadata) {
-    if (MOCK_MODE) {
+    if (isMockMode()) {
       logger.debug(`[MOCK BigQuery] Event: ${eventType}`, { eventMetadata });
       return;
     }
@@ -96,14 +96,14 @@ export const GoogleServices = {
    * @returns {Promise<void>} Resolves when the RTDB update is complete.
    */
   async updateTelemetry(stadiumId, telemetryPayload) {
-    if (MOCK_MODE || !firebaseDatabase) {
+    if (!stadiumId) {
+      throw new AppError('stadiumId is required', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (isMockMode() || !firebaseDatabase) {
       logger.debug(`[MOCK RTDB] Telemetry for ${stadiumId}:`, { telemetryPayload });
       return;
     }
     try {
-      if (!stadiumId) {
-        throw new Error('stadiumId is required for telemetry update');
-      }
       await firebaseDatabase.ref(`telemetry/${stadiumId}`).set({
         ...telemetryPayload,
         last_updated: admin.database.ServerValue.TIMESTAMP,
@@ -132,7 +132,14 @@ export const GoogleServices = {
    * @throws {AppError} If the storage bucket is not configured or upload fails.
    */
   async uploadFile(fileBuffer, destinationFilename) {
-    if (MOCK_MODE) {
+    if (!fileBuffer || !destinationFilename) {
+      throw new AppError(
+        'fileBuffer and destinationFilename are required',
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+      );
+    }
+    if (isMockMode()) {
       logger.debug(`[MOCK GCS] Uploaded ${destinationFilename}`);
       return `https://mock-storage.googleapis.com/${destinationFilename}`;
     }
@@ -140,9 +147,6 @@ export const GoogleServices = {
       const bucketName = process.env.GCS_BUCKET_NAME;
       if (!bucketName) {
         throw new Error('GCS_BUCKET_NAME environment variable is not set');
-      }
-      if (!fileBuffer) {
-        throw new Error('fileBuffer is required for upload');
       }
       const file = googleStorageClient.bucket(bucketName).file(destinationFilename);
       await file.save(fileBuffer);

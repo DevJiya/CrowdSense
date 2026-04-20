@@ -29,7 +29,8 @@ export const GeminiService = {
    * @throws {AppError} If the Gemini API call fails or the stream is interrupted.
    */
   async streamNarration({ message, analysis, language = 'English' }, httpResponse) {
-    if (!process.env.GEMINI_API_KEY || process.env.MOCK_MODE === 'true') {
+    const isMockMode = process.env.MOCK_MODE === 'true' || !process.env.GEMINI_API_KEY;
+    if (isMockMode) {
       httpResponse.setHeader('Content-Type', 'text/event-stream');
       httpResponse.write(
         `data: ${JSON.stringify({ text: '[MOCK AI] Tactical assessment: Crowd density is nominal. All gates operational.' })}\n\n`,

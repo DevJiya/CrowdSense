@@ -35,6 +35,20 @@ describe('CrowdAnalyticsService', () => {
     expect(results.evacuation_route).toBe('Gate A');
   });
 
+  it('should compute tactical insights for high risk areas', async () => {
+    const data = {
+      sectors: [{ n: 'Gate A', d: 95 }],
+      mood: 'CHAOS',
+    };
+    const insights = await CrowdAnalyticsService.computeTacticalInsights(data);
+    expect(insights).toContain('CRITICAL');
+  });
+
+  it('should handle missing data gracefully', async () => {
+    const insights = await CrowdAnalyticsService.computeTacticalInsights(null);
+    expect(insights).toBeDefined();
+  });
+
   test('should calculate overall risk correctly', () => {
     // Avg density: (30+85+95)/3 = 70 -> ELEVATED
     const results = CrowdAnalyticsService.predictBottlenecks(mockSectors);

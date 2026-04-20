@@ -64,6 +64,11 @@ describe('API Routes Integration', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ status: 'logged' });
     });
+
+    test('should return 400 for invalid analytics payload', async () => {
+      const response = await request(app).post('/api/analytics').send({ analyticsEventName: null });
+      expect(response.status).toBe(400);
+    });
   });
 
   describe('GET /api', () => {

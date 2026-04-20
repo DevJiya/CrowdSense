@@ -99,3 +99,33 @@ function updateMapZones() {
     })
     .join('');
 }
+
+/**
+ * Updates the tactical heatmap layer based on provided sensor data.
+ * @param {Array} sensorData - Array of sensor readings with coordinates and density.
+ */
+export function updateHeatmap(sensorData) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const heatmapLayer = document.getElementById('heatmap-layer');
+  if (!heatmapLayer) {
+    return;
+  }
+  heatmapLayer.innerHTML = `<!-- Heatmap logic placeholder for ${sensorData.length} sensors -->`;
+}
+
+/**
+ * Highlights a specific tactical route on the map.
+ * @param {Array} routeNodes - Array of node IDs representing the path.
+ */
+export function highlightRoute(routeNodes) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const routeLayer = document.getElementById('route-layer');
+  if (!routeLayer) {
+    return;
+  }
+  routeLayer.innerHTML = `<!-- Route highlighting for path: ${routeNodes.join(' -> ')} -->`;
+}

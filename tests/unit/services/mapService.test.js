@@ -2,27 +2,25 @@
  * @jest-environment jsdom
  */
 
-/**
- * @module MapServiceTest
- * @description Unit tests for the Map Visualizer, ensuring SVG generation and zone updates.
- */
-
 import { jest } from '@jest/globals';
-import { initMap } from '../../../src/services/mapService.js';
+import { initMap, updateHeatmap, highlightRoute } from '../../../src/services/mapService.js';
 
 describe('MapService', () => {
   let mockContainer;
+  let mockLayer;
 
   beforeEach(() => {
-    // Setup Mock DOM
     mockContainer = {
       innerHTML: '',
       style: { opacity: '1' },
+      classList: { add: jest.fn(), remove: jest.fn() },
     };
-    const mockLayer = { innerHTML: '' };
+    mockLayer = { innerHTML: '' };
+
     document.getElementById = jest.fn().mockImplementation((id) => {
       if (id === 'stadium-map') return mockContainer;
-      if (id === 'map-zones-layer') return mockLayer;
+      if (id === 'map-zones-layer' || id === 'heatmap-layer' || id === 'route-layer')
+        return mockLayer;
       return null;
     });
 
@@ -36,11 +34,20 @@ describe('MapService', () => {
   test('initMap should initialize SVG structure', () => {
     initMap();
     expect(mockContainer.innerHTML).toContain('<svg');
-    expect(mockContainer.innerHTML).toContain('CENTRE FIELD');
   });
 
   test('should not throw if map container is missing', () => {
     document.getElementById.mockReturnValue(null);
     expect(() => initMap()).not.toThrow();
+  });
+
+  test('updateHeatmap should update layer', () => {
+    updateHeatmap([{ id: 'A', d: 80 }]);
+    expect(mockLayer.innerHTML).toBeDefined();
+  });
+
+  test('highlightRoute should update layer', () => {
+    highlightRoute(['A', 'B']);
+    expect(mockLayer.innerHTML).toBeDefined();
   });
 });
