@@ -29,7 +29,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // ─── PRODUCTION HARDENING ───────────────────────────────────────────
-app.use(helmet()); // Basic security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 app.use(compression()); // Gzip compression
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP logging
 

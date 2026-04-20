@@ -64,6 +64,20 @@ const rtdb = firebase.database();
  * @fires firebase.auth.signInWithPopup
  */
 function login() {
+  // DEMO BYPASS: If using mock credentials, simulate a successful login
+  if (firebaseConfig.apiKey.startsWith('AIza...')) {
+    console.warn('CrowdSense: Using Demo Bypass Mode');
+    // Simulate auth state change
+    const demoUser = {
+      displayName: 'Tactical Operator (Demo)',
+      email: 'demo@crowdsense.ai',
+      photoURL: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+    };
+    // We can't easily trigger onAuthStateChanged for real, so we use a flag
+    localStorage.setItem('crowdsense_demo_auth', 'true');
+    window.location.reload();
+    return;
+  }
   const authProvider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(authProvider);
 }
@@ -74,8 +88,10 @@ function login() {
  * @listens firebase.auth.onAuthStateChanged
  */
 function init() {
+  const isDemoMode = localStorage.getItem('crowdsense_demo_auth') === 'true';
+
   auth.onAuthStateChanged((user) => {
-    if (!user) {
+    if (!user && !isDemoMode) {
       document.getElementById('app-container').innerHTML = `
                 <div class="card h-full flex flex-col items-center justify-center text-center gap-6">
                     <i data-lucide="shield-check" class="w-16 h-16 text-blue-500"></i>
